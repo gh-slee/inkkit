@@ -12,7 +12,7 @@ environment is required; there are no third-party runtime or test dependencies.
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
 ```
 
 For agent discovery, private overrides and fresh sessions, see

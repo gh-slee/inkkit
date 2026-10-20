@@ -6,3 +6,7 @@ codex-repository-setup.md export-ignore
 xteink-x3-backup/** export-ignore
 work/** export-ignore
 private/** export-ignore
+*.restore-state.json export-ignore
+**/*.restore-state.json export-ignore
+*.restore.lock export-ignore
+**/*.restore.lock export-ignore

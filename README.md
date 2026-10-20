@@ -38,7 +38,8 @@
 | --- | --- |
 | 📚 **Keep your reading data** | Preserve books, hidden `.crosspoint/` data, fonts, bookmarks, reading history and progress, including unfamiliar hidden reader directories. |
 | 🗄️ **Back up before erasing** | Create a timestamped ZIP, paired manifest and independent checksum, then read back every archived file before ejecting the source. |
-| 🔍 **Inspect first** | Use read-only diagnostics or backup-only mode before attempting a migration. |
+| 🔍 **Inspect first** | Verify an existing backup without a card, or run a read-only target preflight before migration. |
+| 🔄 **Recover an interruption** | Inspect a journal-bound target and resume missing bytes without formatting or replacing existing data. |
 | 🛡️ **Confirm the physical target** | Check removable-media identity, source fingerprints, protected storage, physical mount ownership and capacity before the guarded erase. |
 | 💾 **Choose the card format** | Use capacity-based FAT32/exFAT + MBR defaults, explicit overrides or the source filesystem policy. |
 | ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
@@ -78,7 +79,8 @@ The beta only erases **confirmed writable removable USB/SD media with one mounte
 
 ```bash
 python3 xteink_sd_migrate.py --restore "$PWD/xteink-x3-backup/EXAMPLE.zip"
-python3 xteink_sd_migrate.py --restore "$HOME/Downloads/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --verify-backup "$PWD/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --restore "$PWD/xteink-x3-backup/EXAMPLE.zip" --dry-run
 python3 xteink_sd_migrate.py --filesystem exfat
 python3 xteink_sd_migrate.py --filesystem fat32
 python3 xteink_sd_migrate.py --filesystem source
@@ -89,6 +91,27 @@ python3 xteink_sd_migrate.py --help
 Restore verifies the existing ZIP and manifest, then follows the same destructive target-selection workflow. `--filesystem source` preserves a recognized source FAT32/exFAT format. `--allow-smaller-target` explicitly relaxes only the raw-capacity comparison; data-fit and actual usable-space checks still apply.
 
 </details>
+
+### Verify, preview, and recover
+
+| Command | Behavior |
+| --- | --- |
+| `--verify-backup BACKUP.zip` | Read the paired manifest, whole ZIP hash, every entry and every file hash. No SD card, disk query, journal or eject operation. |
+| `--restore BACKUP.zip --dry-run` | Verify the backup; prompt for an empty reader and replacement card; check identity, source/protected storage, capacity and format limits. No formatting, copying, backup creation, journal or eject operation. |
+| `--check-restore BACKUP.zip` | Inspect the recorded interrupted target and report complete, missing, partial, conflicting and unexpected entries. Read only. |
+| `--resume BACKUP.zip --dry-run` | Same read-only recovery inspection. |
+| `--resume BACKUP.zip` | Require the matching local journal, recorded target volume and `RESUME diskN` confirmation. Append verified remaining bytes and create missing files, then fully verify and eject. Never formats. |
+
+`--dry-run` requires an existing backup with `--restore` or `--resume`; use
+`--backup-only` first if needed. A successful preflight is an estimate: actual free
+space, created filesystem and MBR are checked after a future format, and all guards
+and both erase confirmations run again for the real restore.
+
+New restore jobs save a private local journal beside the ZIP before copying. Recovery
+checks all existing bytes, including a partial file's entire prefix, before appending.
+Complete files keep their contents and timestamps. Unexpected or mismatching data
+stops recovery. Older interrupted jobs without a journal cannot be automatically
+resumed. Keep the original and backup; see the [recovery guide](docs/troubleshooting.md).
 
 ## Supported devices
 
@@ -144,12 +167,14 @@ New backups go to **`xteink-x3-backup/` beside `xteink_sd_migrate.py`**, indepen
 | `xteink-x3_YYYY-MM-DD_HH-MM-SS-microseconds.zip` | Books, hidden configuration and reader data |
 | Same basename `.manifest.json` | Relative paths, sizes, timestamps, source metadata and per-file SHA-256; required for restore |
 | `.zip.sha256` | Independent archive checksum; retain alongside the other files |
+| `.restore-state.json` | Private local job journal for a new/incomplete restore; keep with the ZIP until recovery completes |
+| `.restore.lock` | Private local concurrency lock; an empty lock file may remain after success |
 
 Restore requires the ZIP and matching manifest. The checksum sidecar is retained for separate verification, for example `shasum -a 256 -c EXAMPLE.zip.sha256` inside the backup directory. The `xteink-x3-migrate-v1` schema and v1.6 backups remain supported across the model-neutral tool.
 
 Backups can contain Wi-Fi, OPDS and synchronization credentials and copyrighted books. **They are not encrypted.** Files are created with private permissions, which FAT/exFAT may not enforce. Protect your local storage and retain an off-device copy. The tool does not upload data or contact GitHub during migration.
 
-The backup folder, ZIPs, manifests, checksums, reader data and private settings are Git-ignored. Ignore rules do not protect already tracked files. Repository-local hooks and CI use an explicit publication allowlist and credential-pattern checks; they reduce accidental disclosure but cannot prove that every personal value is absent. Never force-add backups or attach them to public issues. See [publication safeguards](docs/publishing.md) and [security policy](SECURITY.md).
+The backup folder, ZIPs, manifests, checksums, restore journals/locks, reader data and private settings are Git-ignored. Ignore rules do not protect already tracked files. Repository-local hooks and CI use an explicit publication allowlist and credential-pattern checks; they reduce accidental disclosure but cannot prove that every personal value is absent. Never force-add backups or attach them to public issues. See [publication safeguards](docs/publishing.md) and [security policy](SECURITY.md).
 
 <details>
 <summary><strong>Verification guarantees and macOS exclusions</strong></summary>
@@ -210,7 +235,7 @@ For help, [open an issue](https://github.com/gh-slee/xteink-sd-migrator/issues/n
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged
 python3 scripts/check_publication.py --all-history

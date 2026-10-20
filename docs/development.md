@@ -4,6 +4,7 @@
 
 `xteink_sd_migrate.py` is the stable CLI and contains the single `__version__`
 constant. `disk_safety.py` holds the fail-closed physical-storage/identity policy.
+`restore_recovery.py` manages private local restore journals and per-backup locks.
 Tests use the standard library. `scripts/` contains contributor-only publication
 helpers and is not imported by the migration runtime. No venv, pip, Node or Docker
 is required. No separate lint, type-check or package-build command is configured.
@@ -13,13 +14,13 @@ git clone https://github.com/gh-slee/xteink-sd-migrator.git
 cd xteink-sd-migrator
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --help
 ```
 
-Use `-p test_safety.py` or `-p test_publication.py` with unittest discovery for focused
-work, then run the full suite for code changes. Documentation-only edits need link,
+Use `-p test_safety.py`, `-p test_recovery.py` or `-p test_publication.py` with unittest
+discovery for focused work, then run the full suite for code changes. Documentation-only edits need link,
 command and publication checks; never run a migration to validate documentation.
 
 ## Test contracts
@@ -29,7 +30,10 @@ Migration tests use temporary synthetic files, legacy v1 manifests and mocked
 unsafe paths, duplicates, special files, limits, target identity swaps, protected
 storage, FAT32 limits, capacity, MBR/filesystem checks and interrupted restore.
 `XTEINK_TESTING=1` blocks real calls through the mutation runner; keep it set in CI.
-Model-label fixtures verify opaque file preservation, not hardware support.
+Recovery tests inject mid-file failures, verify read-only modes, match journal/volume
+identities, reject conflicting bytes, check lock contention, and retry failed ejects.
+All journal and target contents are synthetic. Model-label fixtures verify opaque
+file preservation, not hardware support.
 
 Publication tests create independent temporary Git repositories with invented text
 and credentials. They verify worktree/index/history audits, forced private staging,

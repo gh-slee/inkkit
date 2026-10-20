@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-beta.3 (unreleased)
+
+- Add read-only `--verify-backup` using full legacy ZIP/manifest/hash validation.
+- Add `--restore BACKUP.zip --dry-run` with shared target/storage/capacity preflight;
+  no formatting, copying, backup/journal/lock creation or eject.
+- Record private local restore journals; add read-only `--check-restore` and
+  `--resume ... --dry-run`, plus confirmed no-format recovery with `--resume`.
+  Preserve complete files and append only a verified active-file prefix; stop on
+  conflicting/unexpected data. Keep source-card and guarded erase protections.
+- Ignore/exclude recovery sidecars from public Git/source exports and add synthetic
+  interruption, read-only, identity, concurrency and recovery regression tests.
+- Keep v1 manifests, historical backup names and the standard-library runtime.
+  No new hardware validation or release publication.
+
 ## 0.1.0-beta.2
 
 - Describe and present the tool as model-independent CrossInk/CrossPoint XTEINK

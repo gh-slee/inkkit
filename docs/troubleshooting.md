@@ -14,13 +14,57 @@ Stop, leave the original card intact and preserve the ZIP, matching `.manifest.j
 
 Missing/invalid manifest or checksum mismatch: recover the paired files from a trusted copy, or make another backup from the original. Do not edit hashes to silence a failure. `shasum -a 256 -c EXAMPLE.zip.sha256` provides a separate checksum check from inside the backup directory.
 
-An interrupted restore may have created some target files. Do not merge a second extraction into it. Once the cause is understood, rerun the full verified restore workflow on a suitable target:
+Verify an existing backup without connecting a card:
 
 ```bash
-python3 xteink_sd_migrate.py --restore "$PWD/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --verify-backup "$PWD/xteink-x3-backup/EXAMPLE.zip"
 ```
 
-This command **erases the selected target again**. A target with partial `.crosspoint` data is deliberately blocked. Preserve it for inspection; use a separate known disposable card or inspect/recover manually. There is no force-wipe override for valuable reader data.
+To preview a new restore, use `--restore BACKUP.zip --dry-run`. This still requires
+the source to be removed and the empty reader observed before inserting the target.
+It performs the read-only erase-policy checks, with no backup, lock, journal, copy,
+format or eject operation. It cannot establish actual post-format usable space.
+
+## Resume a new interrupted restore
+
+New jobs create a `.restore-state.json` beside the ZIP before writing target data.
+Keep this private sidecar with the ZIP and manifest. Leave the original disconnected,
+connect only the interrupted replacement card, and inspect it first:
+
+```bash
+python3 xteink_sd_migrate.py --check-restore "$PWD/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --resume "$PWD/xteink-x3-backup/EXAMPLE.zip" --dry-run
+python3 xteink_sd_migrate.py --resume "$PWD/xteink-x3-backup/EXAMPLE.zip"
+```
+
+The first two commands are read only. The last requires `RESUME diskN`; it never
+formats. The journal must match the verified ZIP/manifest, target volume UUID,
+capacity and filesystem. The target must also pass removable-media, protected-storage,
+physical-mount and MBR checks. Disk numbers may change after reconnection; the volume
+UUID is used to locate the job. Duplicate UUID candidates are refused.
+
+Inspection reports counts without printing book titles or settings paths. Existing
+complete files are checked and skipped. Only the journal's active partial file may
+be appended, and every existing prefix byte must match the ZIP. Missing files and
+directories can be created. Conflicting bytes, unrelated entries, symlinks or nested
+mounts stop recovery; nothing is overwritten or deleted to repair a conflict.
+
+After copying, the entire tree and every file hash are checked again. The journal is
+removed only after successful verification and eject. An eject failure retains it
+so `--resume` can verify and retry eject without rewriting complete files. The empty
+private `.restore.lock` may remain; the OS releases its advisory lock on process exit.
+Keep the journal and lock alongside the backup during a job; do not edit/delete them
+to force another erase or run concurrent restores of the same backup.
+
+Old interrupted jobs without a matching journal cannot be resumed automatically.
+An interruption during formatting or before the first journal is saved has the
+same limitation; automatic recovery covers the journaled copy/verify/eject stages.
+Likewise, filesystem damage or power loss that corrupts completed bytes needs manual
+investigation. Preserve the card, source and backup. A normal `--restore BACKUP.zip`
+**erases the selected target** and deliberately blocks partial `.crosspoint` data;
+there is no force-wipe override. Use a separate known disposable target only after
+the failure is understood. A pending journal blocks starting a new erase with that
+backup; do not discard recovery evidence to silence the guard.
 
 Capacity failure before format leaves the target untouched. Failure after format can leave it empty; use a larger card. Different cards with the same marketed size can have different actual bytes. `--allow-smaller-target` permits an intentional smaller card but never skips usable-space checks.
 
