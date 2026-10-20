@@ -30,7 +30,7 @@
 
 **Beta:** the implementation is model-independent; physical migration evidence is one successful X3/Mac migration with its internal v1.6 predecessor. X4 and other compatible XTEINK models are in scope, with additional hardware validation pending. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
 
-> **The entire target disk you confirm is permanently erased.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully.
+> **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
 
 ## Features
 
@@ -49,8 +49,13 @@
 
 Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
 
+The commands below check out the published [v0.1.0-beta.3 prerelease](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3).
+You can also download its source ZIP or tar.gz from that release page and extract
+the entire source folder before running the script. Contributor setup is in
+[Development](docs/development.md).
+
 ```bash
-git clone https://github.com/gh-slee/xteink-sd-migrator.git
+git clone --branch v0.1.0-beta.3 https://github.com/gh-slee/xteink-sd-migrator.git
 cd xteink-sd-migrator
 
 python3 xteink_sd_migrate.py --version
@@ -205,13 +210,13 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 
 ## Project status
 
-**Beta.** `--version` and the startup banner report the checked-out software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases) describe the validation for each published snapshot; [CHANGELOG.md](CHANGELOG.md) records changes.
+**Published prerelease: [v0.1.0-beta.3](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3) (2026-10-20).** `--version` and the startup banner report the checked-out software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases) describe the validation for each published snapshot; [CHANGELOG.md](CHANGELOG.md) records changes.
 
 | Area | Evidence / boundary |
 | --- | --- |
 | Migration behavior | Existing v1.6 behavior and legacy backup compatibility preserved |
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
-| Automated validation | macOS/Python 3.9 and 3.12 CI: synthetic migration/failure tests, compilation, CLI smoke checks and source-publication audits |
+| Automated validation | [beta.3 CI](https://github.com/gh-slee/xteink-sd-migrator/actions/runs/39503033847): 153 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits |
 | Real hardware | One author-reported X3/Mac migration with internal v1.6; other physical combinations pending |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 

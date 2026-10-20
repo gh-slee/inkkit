@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-beta.3 (unreleased)
+## [0.1.0-beta.3](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3) — 2026-10-20
 
 - Exercise journal creation/write/fsync/atomic-replace/directory-sync failures,
   failed completion checkpoints, mid-write ENOSPC during restore/resume, target
@@ -17,7 +17,7 @@
 - Ignore/exclude recovery sidecars from public Git/source exports and add synthetic
   interruption, read-only, identity, concurrency and recovery regression tests.
 - Keep v1 manifests, historical backup names and the standard-library runtime.
-  No new hardware validation or release publication.
+  No additional real-card testing was performed.
 
 ## 0.1.0-beta.2
 
