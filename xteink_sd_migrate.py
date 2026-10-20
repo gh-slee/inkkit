@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""XTEINK X3 / CrossInk microSD file-level migration for macOS.
+"""XTEINK / CrossInk microSD file-level migration for macOS.
 
 Creates and verifies a timestamped ZIP before ejecting the source card,
 then formats a confirmed external target card as MBR/FAT32 or MBR/exFAT, restores all
@@ -30,7 +30,7 @@ import unicodedata
 import disk_safety
 from pathlib import Path, PurePosixPath
 
-__version__ = "0.1.0-beta.1"
+__version__ = "0.1.0-beta.2"
 BACKUP_DIR = Path(__file__).resolve().parent / "xteink-x3-backup"
 MAX_ENTRIES = 200_000
 MAX_BACKUP_BYTES = 2 * 1024**4
@@ -43,7 +43,7 @@ APPLE_DIRS = {
     ".DocumentRevisions-V100", ".apdisk", ".PKInstallSandboxManager-SystemSoftware",
 }
 APPLE_FILES = {".DS_Store", ".VolumeIcon.icns", ".com.apple.timemachine.donotpresent"}
-X3_FILES = (
+CROSSPOINT_FILES = (
     ".crosspoint/crossink-settings.json", ".crosspoint/settings.json",
     ".crosspoint/state.json", ".crosspoint/global_stats.bin",
     ".crosspoint/wifi.json", ".crosspoint/opds.json",
@@ -451,7 +451,7 @@ def source_signature(root: Path):
     cp = root / ".crosspoint"
     if not cp.is_dir() or cp.is_symlink():
         return None
-    recognized = [p for p in X3_FILES if (root / p).is_file()]
+    recognized = [p for p in CROSSPOINT_FILES if (root / p).is_file()]
     if recognized:
         return f"CrossInk/CrossPoint (.crosspoint + {', '.join(recognized[:3])})"
     try:
@@ -476,7 +476,7 @@ def choose_source():
         raise MigrationError(
             "No mounted SD volume with a recognizable .crosspoint directory was found.\n"
             "Please verify that this is your CrossInk/CrossPoint SD card. "
-            "The card cannot be identified as a specific X3 model from its data alone."
+            "The reader model cannot be identified from SD data alone."
         )
     say("\nRecognized CrossInk/CrossPoint volume(s):")
     for i, (disk, p) in enumerate(options, 1):
@@ -488,8 +488,8 @@ def choose_source():
             raise MigrationError("Cancelled.")
         if choice.isdigit() and 1 <= int(choice) <= len(options):
             disk, part = options[int(choice) - 1]
-            say("NOTE: CrossInk/CrossPoint metadata does not conclusively identify X3 vs X4.")
-            if input("Confirm this is the ORIGINAL XTEINK X3 SD card? [yes/N]: ").strip() != "yes":
+            say("NOTE: CrossInk/CrossPoint metadata does not conclusively identify the reader model.")
+            if input("Confirm this is the ORIGINAL CrossInk/CrossPoint XTEINK SD card? [yes/N]: ").strip() != "yes":
                 raise MigrationError("Source not confirmed.")
             # Record source filesystem without changing the existing return contract.
             disk["source_filesystem"] = part["fstype"]
@@ -558,7 +558,7 @@ def check_space(directory: Path, bytes_needed: int):
 
 
 def make_backup(root: Path, source_disk: dict):
-    say("\n[1/5] Scanning ALL X3 files, including hidden files...")
+    say("\n[1/5] Scanning ALL reader files, including hidden files...")
     root_device = root.stat().st_dev
     files, dirs = iter_source(root)
     total = sum(f["size"] for f in files)
@@ -828,7 +828,7 @@ def source_like_target(disk: dict, manifest: dict):
                 return True
     # Refuse a byte-identical copy even if no CrossPoint marker is present.
     expected = {f["path"]: f["sha256"] for f in manifest["files"]}
-    probes = [name for name in X3_FILES if name in expected]
+    probes = [name for name in CROSSPOINT_FILES if name in expected]
     probes.extend(f["path"] for f in manifest["files"] if f["path"].startswith(".crosspoint/epub_")
                   and f["path"].endswith("/progress.bin"))
     if not probes:
@@ -900,7 +900,7 @@ def choose_target(manifest: dict, source_disk_id: str | None,
     if not target["size"]:
         raise MigrationError("Cannot determine target capacity.")
     if source_like_target(target, manifest):
-        raise MigrationError("TARGET resembles the SOURCE backup (matching X3 files). Refusing to wipe it. Insert a DIFFERENT card.")
+        raise MigrationError("TARGET resembles the SOURCE backup (matching reader files). Refusing to wipe it. Insert a DIFFERENT card.")
     # Compare *actual* raw byte capacity; cards with the same advertised
     # capacity can differ slightly. By default fail closed for a smaller card.
     source_capacity = int(manifest.get("source_disk", {}).get("capacity_bytes") or 0)
@@ -990,7 +990,7 @@ def erase_target(target, archive, manifest, allow_smaller=False):
     if not last or disk_safety.target_identity(last, MigrationError) != target['confirmed_identity']:
         raise MigrationError("Target changed immediately before erase.")
     invoke_status("Formatting target SD", "diskutil", "eraseDisk",
-                  "FAT32" if fs == 'fat32' else "ExFAT", "XTEINKX3", "MBR", f"/dev/{target['id']}")
+                  "FAT32" if fs == 'fat32' else "ExFAT", "XTEINK", "MBR", f"/dev/{target['id']}")
 
 
 def after_format_volume(target_id: str, expected_fs: str = "fat32"):
@@ -1114,7 +1114,7 @@ def eject(disk_id: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verified CrossInk XTEINK X3 SD migration on macOS")
+    parser = argparse.ArgumentParser(description="Verified CrossInk/CrossPoint XTEINK SD migration on macOS")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--backup-only", action="store_true", help="Back up & verify source, then eject (no formatting)")
     group.add_argument("--restore", type=Path, metavar="BACKUP.zip", help="Restore an existing backup (after verification)")
@@ -1136,7 +1136,7 @@ def main():
     say(f" XTEINK SD Migrator v{__version__} — macOS")
     say("=" * 65)
     say("WARNING: Any target disk you confirm will be COMPLETELY ERASED.")
-    say("Keep the original card. Shut down X3 before physically removing the card.")
+    say("Keep the original card. Shut down the reader before physically removing the card.")
     say("The backup includes settings; protect it as it may contain credentials.")
     if args.diagnose:
         diagnose_disks()
@@ -1145,7 +1145,7 @@ def main():
     if args.restore:
         archive, manifest = load_backup(args.restore)
     else:
-        input("Insert ONLY the SOURCE X3 microSD (via card reader), then press Return... ")
+        input("Insert ONLY the SOURCE XTEINK microSD (via card reader), then press Return... ")
         disk, root = choose_source()
         source_id = disk["id"]
         # Volume could become disconnected between selection and traversal.
@@ -1181,7 +1181,7 @@ def main():
     eject(target["id"])
     say("\n" + "=" * 65)
     say("MIGRATION SUCCESSFUL: target SHA-256 verified and safely ejected.")
-    say("Next: insert new card into X3 and test books, fonts, bookmarks and reading progress.")
+    say("Next: insert new card into your XTEINK reader and test books, fonts, bookmarks and reading progress.")
     say(f"Keep backup ZIP: {archive}")
     say("Do NOT wipe the original card until the reader has been fully tested.")
 

@@ -9,6 +9,7 @@ about: Report a failure using sanitized details only
 - Source and target raw capacities:
 - Reader make/type (USB or built-in):
 - Filesystem policy / selected target format:
+- Evidence type (read-only detection, synthetic test, or completed physical migration):
 - Stage of failure and steps to reproduce:
 - Sanitized error text:
 - Was anything erased? Is the original card/verified backup intact?

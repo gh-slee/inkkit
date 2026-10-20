@@ -1,82 +1,223 @@
-# XTEINK SD Migrator
+<p align="center">
+  <img src="assets/readme/xteink-mark.svg" width="84" height="84" alt="XTEINK SD Migrator project icon">
+</p>
 
-Verified file-level microSD backup and migration for **CrossInk/CrossPoint on the XTEINK X3, on macOS**. Includes hidden settings, books, fonts, bookmarks and reading progress. Python 3.9+; standard library only; no installation or third-party dependencies.
+<h1 align="center">XTEINK SD Migrator</h1>
 
-**Version: 0.1.0-beta.1.** Based on an internal v1.6 tool tested by the project author with **one successful X3/Mac migration**. The public beta's additional safeguards have synthetic tests, not additional hardware validation. Other models, firmware versions and reader configurations are **unverified**. Not affiliated with XTEINK or CrossPoint.
+<p align="center">
+  <strong>A new card. The same reading life.</strong><br>
+  Back up, migrate, and verify your CrossInk reader’s books, fonts, settings, and progress.
+</p>
 
-This is a file-level tool, not a raw clone: it does not copy boot sectors, partition geometry, unused sectors or firmware. SD metadata cannot conclusively distinguish X3 from X4.
+<p align="center">
+  <a href="https://github.com/gh-slee/xteink-sd-migrator/actions/workflows/tests.yml"><img src="https://github.com/gh-slee/xteink-sd-migrator/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status on main"></a>
+  <a href="#tech-stack"><img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.9 or newer"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS CLI"></a>
+  <a href="#tech-stack"><img src="https://img.shields.io/badge/Runtime_dependencies-None-208C8A?style=flat-square" alt="Standard library only"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-208C8A?style=flat-square" alt="MIT license"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/Status-Beta-D3973F?style=flat-square" alt="Beta, limited hardware validation"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#supported-devices">Devices</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
+
+**XTEINK SD Migrator is an open-source macOS CLI for replacing the microSD card in a CrossInk-compatible XTEINK reader.** It copies ordinary and hidden files, preserves the reader’s directory layout, and verifies the backup and restored data with SHA-256. No installation, account, network connection, or third-party Python package is needed to run it.
+
+**Beta:** the implementation is model-independent; physical migration evidence is one successful X3/Mac migration with its internal v1.6 predecessor. X4 and other compatible XTEINK models are in scope, with additional hardware validation pending. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
+
+> **The entire target disk you confirm is permanently erased.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully.
+
+## Features
+
+| | What you can do |
+| --- | --- |
+| 📚 **Keep your reading data** | Preserve books, hidden `.crosspoint/` data, fonts, bookmarks, reading history and progress, including unfamiliar hidden reader directories. |
+| 🗄️ **Back up before erasing** | Create a timestamped ZIP, paired manifest and independent checksum, then read back every archived file before ejecting the source. |
+| 🔍 **Inspect first** | Use read-only diagnostics or backup-only mode before attempting a migration. |
+| 🛡️ **Confirm the physical target** | Check removable-media identity, source fingerprints, protected storage, physical mount ownership and capacity before the guarded erase. |
+| 💾 **Choose the card format** | Use capacity-based FAT32/exFAT + MBR defaults, explicit overrides or the source filesystem policy. |
+| ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
+| 🔒 **Keep backups local** | Store backups beside the script in a Git-ignored folder; publication hooks and CI add a separate source-only guard. |
 
 ## Quick start
 
-Clone or download this repository. Open Terminal in the checkout:
+Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
 
 ```bash
+git clone https://github.com/gh-slee/xteink-sd-migrator.git
+cd xteink-sd-migrator
+
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --diagnose
 python3 xteink_sd_migrate.py --backup-only
+```
+
+When you are ready for a full migration:
+
+```bash
 python3 xteink_sd_migrate.py
 ```
 
-Shut down the reader before removing its card. Insert only the source card when prompted. The tool creates and reads back a ZIP before ejecting the source. Remove the source, confirm the reader is empty, then insert a different target card. Disk numbers may be reused by the same reader.
+1. Shut down your reader, insert only the **original** card through the card reader, and confirm the source volume.
+2. Wait for the ZIP creation and read-back verification to finish. Preserve all three backup files.
+3. After the source is ejected, remove it and confirm the reader is empty. Insert the replacement card when prompted. The same reader may reuse the same `diskN` number.
+4. Check the target device, bus, capacity and mount. Type both `ERASE diskN` and `WIPE TARGET` only for the intended replacement.
+5. Wait for format, restore, SHA-256 verification and safe eject. Test books, fonts, bookmarks and progress on your reader before retiring the original card.
 
-**The entire confirmed target disk is permanently erased, including every partition.** Check the displayed device, size, bus and mount carefully. The tool asks for both `ERASE diskN` and `WIPE TARGET`. Cancel with `q` at selection or Ctrl-C before formatting. Once formatting starts, cancellation cannot undo deletion. Keep the original card disconnected and intact until you have tested the new card in the X3.
+Cancel with `q` at disk selection or Ctrl-C before formatting. Cancellation after formatting begins cannot undo deletion. A failed restore may leave an incomplete target; keep the original and verified backup and follow the [recovery guide](docs/troubleshooting.md).
 
-For this conservative beta, a target must have exactly one **mounted FAT32/exFAT volume**, a readable volume UUID, confirmed writable removable USB/SD media and a capacity no larger than 2 TiB. Fixed external HDDs/SSDs, internal non-removable disks, virtual disks, APFS, Time Machine and unknown/unmounted or multi-partition devices are blocked. Some valid readers may be rejected. Do not bypass identity checks or blindly format a rejected device; see [troubleshooting](docs/troubleshooting.md).
+The beta only erases **confirmed writable removable USB/SD media with one mounted FAT32/exFAT volume, a readable volume UUID and capacity <=2 TiB**. Fixed HDDs/SSDs, internal non-removable disks, virtual disks, Time Machine, APFS and unknown, unmounted or multi-partition targets are blocked. Some legitimate readers may be rejected. A running reader’s USB mass-storage mode is not hardware-validated; use a separate SD reader. Do not bypass a rejection or blindly reformat another disk.
 
-## Backups stay local
-
-New backups go to **`xteink-x3-backup/` beside `xteink_sd_migrate.py`**, independent of the Terminal's current directory. Keep all three timestamped files:
-
-| File | Purpose |
-| --- | --- |
-| `xteink-x3_YYYY-MM-DD_HH-MM-SS-microseconds.zip` | Books, hidden configuration and reader data |
-| Same basename `.manifest.json` | Per-file relative paths, sizes, timestamps, SHA-256 and source metadata; required for restore |
-| `.zip.sha256` | Independent ZIP checksum, e.g. `shasum -a 256 -c EXAMPLE.zip.sha256` |
-
-ZIP + matching manifest are required to restore. The checksum sidecar should be retained but is not required by the restore loader. The legacy `xteink-x3-migrate-v1` format and backups from internal v1.6 remain supported. Old backups can stay in their existing locations.
-
-Backups can contain Wi-Fi/OPDS credentials and copyrighted books. **They are not encrypted.** Files are created with private permissions; FAT/exFAT may not enforce Unix permissions. Use encrypted local storage when appropriate. The repo's ignore rules exclude the backup folder, ZIPs, manifests and checksum sidecars. Never force-add backups or attach them to issues. Ignore rules do not protect files already tracked by Git: check `git ls-files` before pushing.
-
-## Filesystem and capacity policy
-
-The default `--filesystem auto` uses the **target's actual raw capacity**:
-
-- At most 32 GiB: FAT32 + MBR.
-- Greater than 32 GiB: exFAT + MBR.
-
-This is the project's policy, not a guarantee of support by every firmware build. FAT32 files must be at most 4 GiB minus one byte. exFAT avoids that limit, but firmware/card/reader compatibility varies. The tool verifies MBR and the actual filesystem after formatting; GPT is not accepted for restore.
+<details>
+<summary><strong>Restore an existing backup or choose a filesystem</strong></summary>
 
 ```bash
+python3 xteink_sd_migrate.py --restore "$PWD/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --restore "$HOME/Downloads/xteink-x3-backup/EXAMPLE.zip"
 python3 xteink_sd_migrate.py --filesystem exfat
 python3 xteink_sd_migrate.py --filesystem fat32
 python3 xteink_sd_migrate.py --filesystem source
 python3 xteink_sd_migrate.py --allow-smaller-target
-python3 xteink_sd_migrate.py --restore "$PWD/xteink-x3-backup/EXAMPLE.zip"
-python3 xteink_sd_migrate.py --restore "$HOME/Downloads/xteink-x3-backup/EXAMPLE.zip"
+python3 xteink_sd_migrate.py --help
 ```
 
-By default the target must be at least as large as the source in actual bytes. `--allow-smaller-target` explicitly overrides that raw-capacity rule; data-fit checks still apply. Allocation overhead and a reserve are estimated before erase. Actual usable space is checked again after formatting, before copying; a failure at that stage leaves an erased target and preserves the original and backup.
+Restore verifies the existing ZIP and manifest, then follows the same destructive target-selection workflow. `--filesystem source` preserves a recognized source FAT32/exFAT format. `--allow-smaller-target` explicitly relaxes only the raw-capacity comparison; data-fit and actual usable-space checks still apply.
 
-## Verification and exclusions
+</details>
 
-ZIP creation, read-back, archive hashing, restore and target verification show bytes, file counts and rates. Formatting/eject show elapsed time, not invented percentages. Every restored file is read back and SHA-256 checked; directory and file trees must match. Checksums show consistency with the captured source bytes, not that the source was originally healthy or that hardware will remain reliable. SHA-256 is not authentication against someone who can alter both ZIP and manifest.
+## Supported devices
+
+[CrossInk’s supported-device list](https://crossink.dev/installation.html) includes **X3, X4, X4 Classic and X4 Pro**. Its [SD layout documentation](https://crossink.dev/data-cache.html) describes the shared `.crosspoint` directory used for reader data. This tool detects that layout and copies opaque file bytes; it does not inspect a model number or flash model-specific firmware.
+
+| Reader / environment | Migration scope | Hardware evidence |
+| --- | --- | --- |
+| XTEINK X3 running CrossInk | Supported file-level workflow | One author-reported successful migration with internal v1.6 |
+| XTEINK X4 running CrossInk | Supported file-level workflow | Physical migration pending |
+| XTEINK X4 Classic / X4 Pro running CrossInk | Supported file-level workflow | Physical migration pending |
+| Other XTEINK models supported by CrossInk | In scope when they expose the same mounted SD layout and pass every safety check | Validate the exact model, firmware, card and reader combination |
+| CrossPoint or downstream firmware with the same layout | Layout-compatible candidate | Firmware-specific validation pending |
+| Stock firmware, a different storage layout, Linux / Windows hosts | Outside the supported workflow | No support claim |
+
+“Supported workflow” describes implementation scope, not a hardware certification. The data cannot conclusively identify an XTEINK model, and firmware support does not guarantee that a reader/card passes macOS disk-safety checks. The intended use is **replacing the card for a reader**, not translating settings or display caches between different models or firmware builds. See the [compatibility guide](docs/compatibility.md).
+
+## How it works
+
+```mermaid
+flowchart TD
+    Source["Original card: read only"] --> Backup["Create ZIP + manifest + checksum"]
+    Backup --> Verify["Read back ZIP and verify every file"]
+    Verify --> Remove["Eject source and confirm empty reader"]
+    Remove --> Target["Insert and identify replacement card"]
+    Target --> Guards["Check source fingerprints, identity and capacity"]
+    Guards --> Confirm["Require both erase confirmations"]
+    Confirm --> Final["Recheck archive, protected disks and target mount"]
+    Final --> Erase["Format FAT32/exFAT + MBR"]
+    Erase --> Restore["Check actual usable space; restore through anchored directory handles"]
+    Restore --> Readback["Read back files; verify SHA-256 and tree"]
+    Readback --> Eject["Safely eject; test in the reader"]
+```
+
+This is **file-level migration**, not `dd` or a raw clone. It does not copy boot sectors, partition geometry, unused sectors or firmware. Formatting and eject show elapsed time; byte-processing stages show progress, counts and rates. The original card and backup are retained after success.
+
+## Filesystem and capacity policy
+
+| Target’s actual raw capacity | Default format |
+| --- | --- |
+| At most 32 GiB | FAT32 + MBR |
+| Greater than 32 GiB | exFAT + MBR |
+
+This is a project default, **not a guarantee of filesystem support by every firmware build**. FAT32 limits individual files to 4 GiB minus one byte. exFAT avoids that limit, but compatibility varies. The tool confirms the actual filesystem and MBR after formatting; GPT is rejected for restore.
+
+The target must normally be at least as large as the source in actual bytes. Cards with the same marketed size can differ. Allocation overhead and a reserve are estimated before erase. Actual free space is checked after format and before copying; failure at that stage leaves an erased target and preserves the original and backup.
+
+## Backups and privacy
+
+New backups go to **`xteink-x3-backup/` beside `xteink_sd_migrate.py`**, independent of your Terminal’s current directory. The historical `x3` spelling is a compatibility name, **not a model restriction**. Existing backups stay where they are.
+
+| File | Purpose |
+| --- | --- |
+| `xteink-x3_YYYY-MM-DD_HH-MM-SS-microseconds.zip` | Books, hidden configuration and reader data |
+| Same basename `.manifest.json` | Relative paths, sizes, timestamps, source metadata and per-file SHA-256; required for restore |
+| `.zip.sha256` | Independent archive checksum; retain alongside the other files |
+
+Restore requires the ZIP and matching manifest. The checksum sidecar is retained for separate verification, for example `shasum -a 256 -c EXAMPLE.zip.sha256` inside the backup directory. The `xteink-x3-migrate-v1` schema and v1.6 backups remain supported across the model-neutral tool.
+
+Backups can contain Wi-Fi, OPDS and synchronization credentials and copyrighted books. **They are not encrypted.** Files are created with private permissions, which FAT/exFAT may not enforce. Protect your local storage and retain an off-device copy. The tool does not upload data or contact GitHub during migration.
+
+The backup folder, ZIPs, manifests, checksums, reader data and private settings are Git-ignored. Ignore rules do not protect already tracked files. Repository-local hooks and CI use an explicit publication allowlist and credential-pattern checks; they reduce accidental disclosure but cannot prove that every personal value is absent. Never force-add backups or attach them to public issues. See [publication safeguards](docs/publishing.md) and [security policy](SECURITY.md).
+
+<details>
+<summary><strong>Verification guarantees and macOS exclusions</strong></summary>
+
+Every archived/restored file is read back and SHA-256 checked; file and directory trees must match. Checksums establish consistency with captured bytes, not original source health, long-term hardware reliability, or authenticity against someone who can modify both ZIP and manifest.
 
 Only these macOS service entries are excluded:
 
-- Root directories/entries: `.Trashes`, `.Spotlight-V100`, `.fseventsd`, `.TemporaryItems`, `.DocumentRevisions-V100`, `.apdisk`, `.PKInstallSandboxManager-SystemSoftware`.
-- Anywhere: `.DS_Store`, `.VolumeIcon.icns`, `.com.apple.timemachine.donotpresent` and names starting `._`.
+- Root entries: `.Trashes`, `.Spotlight-V100`, `.fseventsd`, `.TemporaryItems`, `.DocumentRevisions-V100`, `.apdisk`, `.PKInstallSandboxManager-SystemSoftware`.
+- Anywhere: `.DS_Store`, `.VolumeIcon.icns`, `.com.apple.timemachine.donotpresent` and names beginning `._`.
 
-Other hidden directories are preserved, including `.crosspoint/`, `.fonts/` and unfamiliar reader directories. Links and special files are rejected. Archives with unsafe paths, duplicate/case-colliding names, inconsistent manifests, special entries, excessive declared expansion, or excessive entry/metadata counts are rejected. Limits are 200,000 entries, 2 TiB uncompressed data and 128 MiB manifest/central directory.
+Other hidden data, including `.crosspoint/`, `.fonts/` and unfamiliar reader directories, is preserved. Links and special files are rejected. ZIP validation rejects traversal, duplicate/case/Unicode aliases, mismatched sizes and checksums, special entries and unreasonable resource usage. Limits: 200,000 entries, 2 TiB uncompressed data, 128 MiB manifest/central-directory metadata, expansion ratio <=10,000. See [safety](docs/safety.md).
 
-See [safety and limitations](docs/safety.md), [recovery and troubleshooting](docs/troubleshooting.md) and [contributing](CONTRIBUTING.md). Exit codes: 0 success; 1 operational error; 2 invalid CLI options; 130 interruption. A failed restore may leave an incomplete target: preserve your original and backup and restart the restore workflow only after resolving the cause.
+</details>
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Interface | Direct Python 3.9+ CLI; no package installation |
+| Disk discovery / formatting | macOS `diskutil` property lists and a guarded erase entry point |
+| Backup and integrity | Standard-library `zipfile`, JSON, `hashlib` SHA-256 |
+| Restore safety | Directory descriptors, no-follow paths, exclusive file creation, disk/mount checks |
+| Verification | `unittest`, temporary synthetic files and mocked disk commands |
+| Contributor privacy | Standard-library publication guard, local Git hooks, GitHub Actions |
+
+No runtime dependencies, Docker service, web frontend, telemetry or AI service. The project icon is original SVG artwork; [asset provenance](assets/readme/README.md).
+
+## Project status
+
+**Beta.** `--version` and the startup banner report the checked-out software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases) describe the validation for each published snapshot; [CHANGELOG.md](CHANGELOG.md) records changes.
+
+| Area | Evidence / boundary |
+| --- | --- |
+| Migration behavior | Existing v1.6 behavior and legacy backup compatibility preserved |
+| Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
+| Automated validation | macOS/Python 3.9 and 3.12 CI: synthetic migration/failure tests, compilation, CLI smoke checks and source-publication audits |
+| Real hardware | One author-reported X3/Mac migration with internal v1.6; other physical combinations pending |
+| Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
+
+No real card is formatted by tests or CI. Additional hardware reports are welcome, with exact model, firmware, reader and capacities, using sanitized details. Automated success is not proof that a particular physical device has been migrated.
+
+## Documentation
+
+| Guide | Read it for… |
+| --- | --- |
+| [Compatibility](docs/compatibility.md) | Device scope, firmware/layout assumptions and validation evidence |
+| [Safety](docs/safety.md) | Erase guards, integrity checks and remaining limits |
+| [Troubleshooting](docs/troubleshooting.md) | `diskutil info -plist diskN`, detection, macOS permissions, capacity failures and recovery |
+| [Contributing](CONTRIBUTING.md) · [Development](docs/development.md) | Local setup, tests, CI and project maintenance |
+| [Publication](docs/publishing.md) · [Security](SECURITY.md) | Private backups, index/history audits and vulnerability reports |
+| [Shared project instructions](AGENTS.md) · [Changelog](CHANGELOG.md) | Development boundaries and version history |
+
+For help, [open an issue](https://github.com/gh-slee/xteink-sd-migrator/issues/new/choose) with a minimal synthetic reproduction and sanitized errors. Exit codes: 0 success; 1 operational error; 2 invalid CLI options; 130 interruption.
 
 ## Development
 
 ```bash
+python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+python3 scripts/check_publication.py --worktree
+python3 scripts/check_publication.py --staged
+python3 scripts/check_publication.py --all-history
 ```
 
-Tests use temporary synthetic data and mocked disk commands. `XTEINK_TESTING=1` blocks the disk mutation runner. CI runs on macOS with that guard set, with Python 3.9 and 3.12. No real SD card is formatted in tests. Real destructive testing requires an explicitly volunteered disposable card and a separate human-supervised session.
+Git hooks are installed only in this checkout. Tests use disposable synthetic fixtures; `XTEINK_TESTING=1` blocks the disk mutation runner. Real destructive testing is a separate, voluntary session using an explicitly designated disposable card. Development agents are optional and are not runtime dependencies.
 
-MIT licensed. Additional carefully documented hardware configurations are welcome; remove personal paths, volume names, book titles and credentials from reports.
+## License
+
+Code, documentation and original artwork are [MIT licensed](LICENSE). Python and macOS tools retain their own licenses. Reader firmware and user-owned books/data are not distributed by this project.

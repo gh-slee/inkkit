@@ -36,3 +36,10 @@ venv/
 .coverage
 htmlcov/
 work/
+
+# Private contributor/agent preferences
+AGENTS.override.md
+.agents/
+.codex/
+.cursor/
+private/

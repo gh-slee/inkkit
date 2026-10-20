@@ -65,7 +65,7 @@ class SafetyTests(unittest.TestCase):
              patch.object(m, 'invoke_status') as erase:
             m.erase_target(self.disk, self.archive, self.manifest, **kwargs)
             erase.assert_called_once_with('Formatting target SD', 'diskutil', 'eraseDisk',
-                                          'FAT32', 'XTEINKX3', 'MBR', '/dev/disk9')
+                                          'FAT32', 'XTEINK', 'MBR', '/dev/disk9')
 
     def test_legacy_backup_roundtrip(self):
         archive, manifest = m.load_backup(self.archive)
@@ -410,6 +410,32 @@ class SafetyTests(unittest.TestCase):
             m.restore_archive(self.archive, self.manifest, self.mount, expected_identity=(-1, -1))
         self.assertEqual(list(self.mount.iterdir()), [])
 
+
+    def test_model_neutral_hidden_data_roundtrip(self):
+        # Invented setting values exercise opaque bytes, not firmware schemas.
+        for model in ('X3', 'X4', 'X4 Classic', 'X4 Pro', 'future-compatible-model'):
+            with self.subTest(model=model):
+                source = self.root / ('source-' + model.replace(' ', '-'))
+                target = self.root / ('target-' + model.replace(' ', '-'))
+                (source / '.crosspoint').mkdir(parents=True)
+                target.mkdir()
+                payload = json.dumps({'synthetic_model': model}).encode()
+                (source / '.crosspoint/crossink-settings.json').write_bytes(payload)
+                (source / '.crosspoint/unknown-future-data').write_bytes(b'synthetic')
+                self.assertTrue(m.source_signature(source))
+                with patch.object(m, 'BACKUP_DIR', self.root / 'backup'):
+                    archive, manifest = m.make_backup(source, {'id':'disk8', 'name':'Synthetic', 'size':1000})
+                m.restore_archive(archive, manifest, target)
+                m.verify_restored(target, manifest)
+                self.assertEqual((target / '.crosspoint/crossink-settings.json').read_bytes(), payload)
+                self.assertEqual(manifest['format'], 'xteink-x3-migrate-v1')
+
+    def test_help_has_no_x3_only_restriction(self):
+        output = io.StringIO()
+        with patch.object(m.sys, 'argv', ['prog','--help']), contextlib.redirect_stdout(output):
+            with self.assertRaises(SystemExit): m.main()
+        self.assertIn('XTEINK SD migration', output.getvalue())
+        self.assertNotIn('XTEINK X3 SD migration', output.getvalue())
 
 
 if __name__ == '__main__':

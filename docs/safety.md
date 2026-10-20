@@ -14,4 +14,7 @@ Resource policy: at most 200,000 files/directories, 2 TiB declared expanded data
 
 Source changes detected during scanning/reading abort backup. SHA-256 checks consistency, not original source health or authenticity. Protect both ZIP and manifest from tampering. Unix mode 600 does not encrypt files, and removable FAT filesystems may not enforce those permissions.
 
-Current evidence: one successful author migration with the internal v1.6 tool; synthetic/macOS CI tests for this public beta. No additional real-card formatting occurred during this refactor. Other firmware, models, capacities, cards and readers are unverified. This is experimental software, not a production safety certification.
+The workflow is model-independent for compatible CrossInk XTEINK readers; see
+[compatibility](compatibility.md). Model-specific prompts do not change disk policy.
+
+Current evidence: one successful author migration with the internal v1.6 tool; synthetic/macOS CI tests for this public beta. No additional real-card formatting occurred during this refactor. Other physical model/firmware/capacity/card/reader combinations are unverified. This is experimental software, not a production safety certification.

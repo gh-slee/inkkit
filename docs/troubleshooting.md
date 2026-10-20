@@ -24,10 +24,17 @@ This command **erases the selected target again**. A target with partial `.cross
 
 Capacity failure before format leaves the target untouched. Failure after format can leave it empty; use a larger card. Different cards with the same marketed size can have different actual bytes. `--allow-smaller-target` permits an intentional smaller card but never skips usable-space checks.
 
-## X3 does not recognize the new card
+## The XTEINK reader does not recognize the new card
 
 Keep using the original card. Record macOS, firmware build, reader, card capacities, selected filesystem and redacted error messages. Verify the tool reported MBR and the requested filesystem. Confirm the firmware's actual FAT32/exFAT support and test the card/reader separately without risking your original data. The <=32 GiB FAT32 / >32 GiB exFAT default is a migration policy, not universal firmware support. Do not blindly reformat repeatedly or flash firmware as a troubleshooting shortcut.
 
 ## Synthetic restore smoke test
 
 Run `XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b`. Tests build synthetic ZIPs and legacy manifests in temporary directories, restore hidden files, read back checksums, inject failures and mock every destructive command. No user backup or real disk is needed. Keep test logs local if they include private environment paths. A real hardware smoke test is separate, voluntary, destructive and must use a disposable test card.
+
+## Model scope
+
+X3 is not a required model. X4 and other compatible CrossInk XTEINK models use the
+same file-level workflow; see [compatibility](compatibility.md). Legacy `xteink-x3`
+backup names identify the historical archive format, not a device restriction.
+Use an external SD reader; a running device's USB transfer mode is unverified.
