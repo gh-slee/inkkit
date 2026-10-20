@@ -15,6 +15,9 @@ XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
 python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
 ```
 
+For agent discovery, private overrides and fresh sessions, see
+[agent development](docs/agent-development.md).
+
 Hook installation changes only this checkout's `core.hooksPath` and refuses to
 silently replace an existing custom path. See [development](docs/development.md).
 
@@ -39,7 +42,10 @@ Describe the concrete problem, resulting behavior, validation and limits using t
 PR template. Run [publication checks](docs/publishing.md) for the full worktree/index
 and reachable history. Stage explicit reviewed paths, not `git add .`. Never force-add
 backups. Use your GitHub noreply author/committer address for public commits; the
-history guard checks it without printing private identities.
+history guard checks it without printing private identities. Inspect existing
+identity settings first; do not change contributor/global identity automatically.
+A local setup request does not authorize a push, PR, release or deployment. Guards
+check content, not owner consent; confirm the exact publication scope separately.
 
 Additional public files require a reviewed addition to the publication allowlist.
 Keep `scripts/check_publication.py`, its tests and affected docs aligned. Pattern
