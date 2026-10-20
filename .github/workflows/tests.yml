@@ -1,0 +1,26 @@
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python: ['3.9', '3.12']
+    env:
+      XTEINK_TESTING: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Synthetic unit tests (no real disk mutations)
+        run: python -m unittest discover -s tests -v -b
+      - name: Compile and CLI smoke checks
+        run: |
+          python -m compileall -q xteink_sd_migrate.py disk_safety.py tests
+          python xteink_sd_migrate.py --version
+          python xteink_sd_migrate.py --help

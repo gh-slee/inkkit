@@ -1,0 +1,38 @@
+# Private backups and reader data: never publish
+xteink-x3-backup/
+*.zip
+*.zip.*
+*.manifest.json
+*.sha256
+*.partial
+*.epub
+*.pdf
+*.mobi
+*.azw*
+*.cpfont
+*.bin
+.crosspoint/
+.fonts/
+Books/
+books/
+*settings*.json
+*wifi*.json
+*opds*.json
+*.env
+.env*
+*.pem
+*.key
+*.log
+# Original inputs remain local, outside the published project
+*_v[0-9]*.py
+# Local and development artifacts
+.DS_Store
+._*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+work/
