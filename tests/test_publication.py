@@ -113,6 +113,21 @@ class PublicationTests(unittest.TestCase):
         (self.root / 'unreviewed.txt').write_text('Synthetic unknown file')
         self.assertTrue(guard.audit(self.root, 'worktree')[1])
 
+    def test_recovery_sidecars_ignored_and_force_staging_blocked(self):
+        project = Path(__file__).resolve().parents[1]
+        (self.root / '.gitignore').write_bytes((project / '.gitignore').read_bytes())
+        for folder in (self.root, self.root / 'nested'):
+            folder.mkdir(exist_ok=True)
+            for suffix in ('.restore-state.json', '.restore.lock'):
+                path = folder / ('synthetic' + suffix)
+                path.write_text('Invented private recovery state')
+                relative = str(path.relative_to(self.root))
+                self.git('check-ignore', '-q', '--', relative)
+                self.assertFalse(guard.allowed(relative))
+        self.assertEqual(guard.audit(self.root, 'worktree')[1], [])
+        self.git('add', '-f', '--', 'synthetic.restore-state.json')
+        self.assertTrue(guard.audit(self.root, 'staged')[1])
+
     def test_noreply_commit_identity_required(self):
         self.git('config', 'user.email', 'synthetic@example.invalid')
         self.git('commit', '--allow-empty', '-qm', 'Synthetic private identity')
@@ -155,7 +170,9 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(guard.audit(self.root, 'worktree')[1], [])
 
     def test_force_added_root_and_nested_override_rejected(self):
-        for relative in ('AGENTS.override.md', 'docs/AGENTS.override.md'):
+        for relative in ('AGENTS.override.md', 'docs/AGENTS.override.md',
+                         'synthetic.restore-state.json', 'docs/synthetic.restore-state.json',
+                         'synthetic.restore.lock', 'docs/synthetic.restore.lock'):
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('Synthetic private instructions.')
@@ -246,6 +263,7 @@ class PublicationTests(unittest.TestCase):
             names = source.getnames()
         self.assertIn('README.md', names)
         self.assertFalse(any(Path(name).name == 'AGENTS.override.md' for name in names))
+        self.assertFalse(any(name.endswith(('.restore-state.json', '.restore.lock')) for name in names))
         self.assertNotIn(b'Synthetic private archive marker.', archive)
 
 

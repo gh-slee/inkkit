@@ -5,6 +5,8 @@ xteink-x3-backup/
 *.manifest.json
 *.sha256
 *.partial
+*.restore-state.json
+*.restore.lock
 *.epub
 *.pdf
 *.mobi

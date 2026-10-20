@@ -1,4 +1,5 @@
 import importlib.util
+from contextlib import nullcontext
 import os
 os.environ["XTEINK_TESTING"] = "1"
 import json
@@ -230,7 +231,11 @@ class AutoFormatPolicyTests(unittest.TestCase):
                  patch.object(m, 'load_backup', return_value=(archive, manifest)), \
                  patch.object(m, 'choose_target', return_value={'id': 'disk9', 'target_filesystem': resolved}) as chooser, \
                  patch.object(m, 'erase_target') as gate, \
-                 patch.object(m, 'external_disks', return_value=[{'id':'disk9'}]), \
+                 patch.object(m, 'external_disks', return_value=[{'id':'disk9', 'size': 256 * 1024**2,
+                              'partitions': [{'mount': '/tmp', 'fstype': resolved}]}]), \
+                 patch.object(m.restore_recovery, 'locked', return_value=nullcontext()), \
+                 patch.object(m.restore_recovery, 'require_new'), \
+                 patch.object(m.restore_recovery.Journal, 'create'), \
                  patch.object(m.disk_safety, 'physical_disks', return_value={'disk9'}), \
                  patch.object(m, 'after_format_volume', return_value=Path('/tmp')), \
                  patch.object(m, 'check_formatted_target_space'), \

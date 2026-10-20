@@ -32,7 +32,7 @@ an opaque-file workflow; physical validation is separate from model support.
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged
 python3 scripts/check_publication.py --all-history

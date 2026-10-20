@@ -33,6 +33,6 @@ jobs:
         run: python -m unittest discover -s tests -v -b
       - name: Compile and CLI smoke checks
         run: |
-          python -m compileall -q xteink_sd_migrate.py disk_safety.py scripts tests
+          python -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
           python xteink_sd_migrate.py --version
           python xteink_sd_migrate.py --help

@@ -11,6 +11,7 @@ Public beta based on the internal v1.6 implementation.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import datetime as dt
 import hashlib
 import json
@@ -28,9 +29,10 @@ import zipfile
 import unicodedata
 
 import disk_safety
+import restore_recovery
 from pathlib import Path, PurePosixPath
 
-__version__ = "0.1.0-beta.2"
+__version__ = "0.1.0-beta.3"
 BACKUP_DIR = Path(__file__).resolve().parent / "xteink-x3-backup"
 MAX_ENTRIES = 200_000
 MAX_BACKUP_BYTES = 2 * 1024**4
@@ -868,17 +870,17 @@ def check_formatted_target_space(volume: Path, manifest: dict, filesystem: str =
     allocation_unit = max(stats.f_frsize, stats.f_bsize, 65536)
     needed = required_allocated_space(manifest, allocation_unit)
     free = shutil.disk_usage(volume).free
-    say(f"Target free after {filesystem.upper()} format: {human(free)}")
+    say(f"Target available free space ({filesystem.upper()}): {human(free)}")
     say(f"Estimated needed incl. cluster overhead and safety margin: {human(needed)}")
     if needed > free:
         raise MigrationError(
-            f"Not enough usable space after formatting: need {human(needed)}, "
+            f"Not enough usable space on target: need {human(needed)}, "
             f"have {human(free)}. No backup files were written to the target."
         )
 
 
 def choose_target(manifest: dict, source_disk_id: str | None,
-                  allow_smaller_target: bool = False, filesystem: str = "auto"):
+                  allow_smaller_target: bool = False, filesystem: str = "auto", dry_run=False):
     input("\nRemove the ORIGINAL card and leave the reader empty. Press Return... ")
     records = diskutil_plist("list").get("AllDisksAndPartitions", [])
     absent_ids = {r.get("DeviceIdentifier") for r in records}
@@ -888,7 +890,7 @@ def choose_target(manifest: dict, source_disk_id: str | None,
     disks = external_disks()
     if not disks:
         raise MigrationError("No external disk found. Check the new SD card/reader.")
-    target = choose_disk(disks, "TARGET (WILL BE ERASED)")
+    target = choose_disk(disks, "TARGET PREFLIGHT" if dry_run else "TARGET (WILL BE ERASED)")
     if target["id"] in absent_ids:
         raise MigrationError("Target was already attached during the empty-reader check.")
     confirmed_identity = disk_safety.target_identity(target, MigrationError)
@@ -928,14 +930,19 @@ def choose_target(manifest: dict, source_disk_id: str | None,
     say(f"Target physical capacity: {human(target['size'])}")
     say(f"Estimated restore requirement: {human(required)}")
     say(f"Source filesystem: {manifest.get('source_disk', {}).get('filesystem', 'unknown')}")
-    say(f"Target filesystem: {target_fs.upper()} / MBR (will be ERASED; policy: {filesystem})")
-    say("\n!!! PERMANENT DATA DELETION !!!")
+    action = 'proposed format' if dry_run else 'will be ERASED'
+    say(f"Target filesystem: {target_fs.upper()} / MBR ({action}; policy: {filesystem})")
+    if dry_run:
+        say("\nDRY RUN: no format, restore, eject, backup or journal writes.")
+    else:
+        say("\n!!! PERMANENT DATA DELETION !!!")
     say(f"TARGET: /dev/{target['id']} — {target['name']} ({human(target['size'])})")
-    say("Every partition and file on THIS DISK will be destroyed.")
+    say("A future restore would destroy every partition and file on this disk." if dry_run else
+        "Every partition and file on THIS DISK will be destroyed.")
     say("Keep the original card disconnected and preserve the backup.")
-    if input(f"Type exactly 'ERASE {target['id']}' to format the target: ").strip() != f"ERASE {target['id']}":
+    if not dry_run and input(f"Type exactly 'ERASE {target['id']}' to format the target: ").strip() != f"ERASE {target['id']}":
         raise MigrationError("Wipe not confirmed; target untouched.")
-    if input("FINAL confirmation: type 'WIPE TARGET' to continue: ").strip() != "WIPE TARGET":
+    if not dry_run and input("FINAL confirmation: type 'WIPE TARGET' to continue: ").strip() != "WIPE TARGET":
         raise MigrationError("Wipe not confirmed; target untouched.")
     # Re-check immediately, to reduce risk of changed device identifiers.
     refreshed = next((d for d in external_disks() if d["id"] == target["id"]), None)
@@ -954,21 +961,23 @@ def choose_target(manifest: dict, source_disk_id: str | None,
     return refreshed
 
 
-def erase_target(target, archive, manifest, allow_smaller=False):
-    """The only eraseDisk entry point: revalidate data, storage and confirmed media."""
-    archive, verified = load_backup(archive)
-    if verified != manifest:
-        raise MigrationError("Backup manifest changed after target confirmation.")
+def protected_locations(archive):
+    paths = [archive, archive.with_suffix('.manifest.json'), Path(__file__),
+             Path(disk_safety.__file__), Path(restore_recovery.__file__),
+             Path.cwd(), Path.home(), Path('/')]
+    for suffix in ('.zip.sha256', '.restore-state.json', '.restore.lock'):
+        sidecar = archive.with_suffix(suffix)
+        if sidecar.exists() or sidecar.is_symlink():
+            paths.append(sidecar)
+    return paths
+
+
+def preflight_target(target, archive, verified, allow_smaller=False):
+    """Read-only erase policy, also used by --dry-run. Never invokes mutations."""
     current = next((d for d in external_disks() if d['id'] == target['id']), None)
     if not current or disk_safety.target_identity(current, MigrationError) != target.get('confirmed_identity'):
         raise MigrationError("Confirmed target identity changed; refusing erase.")
-    protected = [
-        archive, archive.with_suffix('.manifest.json'), Path(__file__),
-        Path(disk_safety.__file__), Path.cwd(), Path.home(), Path('/')]
-    sidecar = archive.with_suffix('.zip.sha256')
-    if sidecar.exists() or sidecar.is_symlink():
-        protected.append(sidecar)
-    disk_safety.protect_locations(current, protected, diskutil_plist, MigrationError)
+    disk_safety.protect_locations(current, protected_locations(archive), diskutil_plist, MigrationError)
     if source_like_target(current, verified):
         raise MigrationError("Target matches source data; refusing erase.")
     source_uuid = verified['source_disk'].get('volume_uuid')
@@ -989,6 +998,17 @@ def erase_target(target, archive, manifest, allow_smaller=False):
     last = next((d for d in external_disks() if d['id'] == target['id']), None)
     if not last or disk_safety.target_identity(last, MigrationError) != target['confirmed_identity']:
         raise MigrationError("Target changed immediately before erase.")
+    return last
+
+
+def erase_target(target, archive, manifest, allow_smaller=False):
+    """The only eraseDisk entry point: revalidate data, storage and confirmed media."""
+    archive, verified = load_backup(archive)
+    restore_recovery.require_new(archive, MigrationError)
+    if verified != manifest:
+        raise MigrationError("Backup manifest changed after target confirmation.")
+    preflight_target(target, archive, verified, allow_smaller)
+    fs = target['target_filesystem']
     invoke_status("Formatting target SD", "diskutil", "eraseDisk",
                   "FAT32" if fs == 'fat32' else "ExFAT", "XTEINK", "MBR", f"/dev/{target['id']}")
 
@@ -1017,73 +1037,262 @@ def after_format_volume(target_id: str, expected_fs: str = "fat32"):
     return Path(p["mount"])
 
 
-def restore_archive(archive: Path, manifest: dict, root: Path, expected_identity=None):
-    say("\n[4/5] Restoring verified backup...")
-    # Anchor every write to an open directory descriptor. An unmounted path must
-    # never fall back to creating files on the Mac beneath the old mount point.
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    root_fd = os.open(root, flags)
-    root_stat = os.fstat(root_fd)
-    root_device = root_stat.st_dev
+@contextmanager
+def restore_root(root, expected_identity=None):
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if expected_identity is not None and (info.st_dev, info.st_ino) != expected_identity:
+            raise MigrationError("Restore mount changed before opening; refusing write.")
+        yield fd
+    finally:
+        os.close(fd)
 
-    def directory_fd(parts):
-        fd = os.dup(root_fd)
-        try:
-            for component in parts:
+
+def directory_handle(root_fd, parts, create=False):
+    fd = os.dup(root_fd)
+    device = os.fstat(root_fd).st_dev
+    try:
+        for component in parts:
+            if create:
                 try:
                     os.mkdir(component, dir_fd=fd)
                 except FileExistsError:
                     pass
-                child = os.open(component, flags, dir_fd=fd)
-                os.close(fd)
-                fd = child
-                if os.fstat(fd).st_dev != root_device:
-                    raise MigrationError("Nested mount in restore tree; refusing write.")
-            return fd
-        except BaseException:
+            child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
             os.close(fd)
-            raise
+            fd = child
+            if os.fstat(fd).st_dev != device:
+                raise MigrationError("Nested mount in restore tree; refusing access.")
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
 
-    try:
-        if expected_identity is not None and (root_stat.st_dev, root_stat.st_ino) != expected_identity:
-            raise MigrationError("Restore mount changed before opening; refusing write.")
-        verify_archive_contents(archive, manifest)
+
+def checked_prefix(src, dst, size, expected, progress=None):
+    """Compare every existing byte with the verified ZIP before any append."""
+    before = os.fstat(dst.fileno())
+    if not stat.S_ISREG(before.st_mode) or before.st_size != size or before.st_nlink != 1:
+        raise MigrationError("Recovery file identity/type changed; target left untouched.")
+    h = hashlib.sha256()
+    remaining = size
+    while remaining:
+        block = dst.read(min(CHUNK, remaining))
+        if not block or block != src.read(len(block)):
+            raise MigrationError("Existing target bytes differ from the backup; refusing recovery writes.")
+        h.update(block)
+        remaining -= len(block)
+        if progress:
+            progress.advance(len(block))
+    after = os.fstat(dst.fileno())
+    if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
+        raise MigrationError("Target changed while checking recovery bytes.")
+    if size == expected['size'] and h.hexdigest() != expected['sha256']:
+        raise MigrationError("Existing file checksum differs; refusing recovery writes.")
+    return h
+
+
+def inspect_restore(archive, manifest, root, journal, expected_identity=None):
+    """Read-only, descriptor-anchored inspection. No target or journal writes."""
+    files, dirs = {}, set()
+    expected = {item['path']: item for item in manifest['files']}
+    report = dict(complete=0, missing=0, partial=0, conflicts=0, unexpected=0)
+    statuses = {}
+    with restore_root(root, expected_identity) as root_fd:
+        device = os.fstat(root_fd).st_dev
+        def scan(fd, prefix=''):
+            for name in os.listdir(fd):
+                relative = prefix + name
+                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                is_dir = stat.S_ISDIR(info.st_mode)
+                if ignore_path(relative, is_dir=is_dir):
+                    continue
+                if info.st_dev != device or not (is_dir or stat.S_ISREG(info.st_mode)):
+                    raise MigrationError("Recovery tree contains a link, special file or nested mount.")
+                if len(files) + len(dirs) >= MAX_ENTRIES:
+                    raise MigrationError("Recovery tree exceeds entry limit.")
+                if is_dir:
+                    dirs.add(relative)
+                    child = directory_handle(fd, (name,))
+                    try:
+                        scan(child, relative + '/')
+                    finally:
+                        os.close(child)
+                else:
+                    files[relative] = info.st_size
+        scan(root_fd)
+        report['unexpected'] = len(set(files) - set(expected)) + len(dirs - set(manifest['directories']))
+        with zipfile.ZipFile(archive) as zf:
+            for name, item in expected.items():
+                if name not in files:
+                    statuses[name] = None
+                    report['missing'] += 1
+                    continue
+                size = files[name]
+                if size > item['size'] or (size < item['size'] and journal.data['current_file'] != name):
+                    report['conflicts'] += 1
+                    continue
+                parent = directory_handle(root_fd, PurePosixPath(name).parts[:-1])
+                try:
+                    fd = os.open(PurePosixPath(name).name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                 dir_fd=parent)
+                    with os.fdopen(fd, 'rb') as dst, zf.open(name) as src:
+                        checked_prefix(src, dst, size, item)
+                    statuses[name] = size
+                    report['complete' if size == item['size'] else 'partial'] += 1
+                except MigrationError:
+                    report['conflicts'] += 1
+                finally:
+                    os.close(parent)
+    report['statuses'] = statuses
+    report['remaining'] = {
+        'files': [dict(item, size=item['size'] - (statuses.get(item['path']) or 0))
+                  for item in manifest['files'] if statuses.get(item['path']) != item['size']],
+        'directories': sorted(set(manifest['directories']) - dirs),
+        'total_bytes': sum(item['size'] - (statuses.get(item['path']) or 0)
+                           for item in manifest['files']),
+    }
+    return report
+
+
+def restore_archive(archive: Path, manifest: dict, root: Path, expected_identity=None,
+                    journal=None, resume=False):
+    say("\n[4/5] Restoring verified backup...")
+    verify_archive_contents(archive, manifest)
+    statuses = {}
+    if resume:
+        if journal is None:
+            raise MigrationError("Recovery requires a matching local restore journal.")
+        report = inspect_restore(archive, manifest, root, journal, expected_identity)
+        if report['conflicts'] or report['unexpected']:
+            raise MigrationError("Recovery conflicts or unexpected entries found; no files written.")
+        statuses = report['statuses']
+    with restore_root(root, expected_identity) as root_fd:
         written = Progress("SD restore", manifest["total_bytes"], len(manifest["files"]))
         with zipfile.ZipFile(archive, "r") as zf:
             for name in sorted(manifest["directories"], key=lambda n: (n.count("/"), n)):
-                os.close(directory_fd(PurePosixPath(name).parts))
-            for item in manifest["files"]:
-                parts = PurePosixPath(item["path"]).parts
-                parent_fd = directory_fd(parts[:-1])
+                os.close(directory_handle(root_fd, PurePosixPath(name).parts, create=True))
+            items = manifest['files']
+            if resume and journal.data['current_file'] is not None:
+                items = sorted(items, key=lambda item: item['path'] != journal.data['current_file'])
+            for item in items:
+                name = item['path']
+                parts = PurePosixPath(name).parts
+                parent_fd = directory_handle(root_fd, parts[:-1], create=True)
+                existing = statuses.get(name)
+                complete = existing == item['size']
                 try:
-                    fd = os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                                 0o600, dir_fd=parent_fd)
-                    h = hashlib.sha256()
-                    with zf.open(item["path"]) as src, os.fdopen(fd, "wb") as dst:
-                        size = 0
-                        while block := src.read(CHUNK):
-                            size += len(block)
-                            if size > item["size"]:
-                                raise MigrationError("Restore stream exceeds verified size.")
-                            dst.write(block)
-                            h.update(block)
-                            written.advance(len(block))
-                        dst.flush()
-                        os.fsync(dst.fileno())
-                    if size != item["size"] or h.hexdigest() != item["sha256"]:
-                        raise MigrationError("Restored file checksum/size mismatch.")
-                    try:
-                        os.utime(parts[-1], ns=(item["mtime_ns"], item["mtime_ns"]),
-                                 dir_fd=parent_fd, follow_symlinks=False)
-                    except OSError:
-                        say("  WARNING: unable to preserve a modification time.")
+                    # Preserve the old partial-file authorization until it is processed.
+                    # Other files may be missing after power loss and can be recreated.
+                    if journal and not complete and (journal.data['current_file'] in (None, name)):
+                        journal.current(name)
+                    if existing is None:
+                        fd = os.open(parts[-1], os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                     0o600, dir_fd=parent_fd)
+                        mode = 'w+b'
+                    else:
+                        fd = os.open(parts[-1], (os.O_RDONLY if complete else os.O_RDWR | os.O_APPEND)
+                                     | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+                        mode = 'rb' if complete else 'r+b'
+                    with os.fdopen(fd, mode) as dst, zf.open(name) as src:
+                        opened = os.fstat(dst.fileno())
+                        if opened.st_dev != os.fstat(root_fd).st_dev or not stat.S_ISREG(opened.st_mode):
+                            raise MigrationError("Recovery file moved to another device or changed type.")
+                        h = checked_prefix(src, dst, existing, item, written) if existing is not None else hashlib.sha256()
+                        size = existing or 0
+                        if not complete:
+                            if journal and journal.data['current_file'] != name:
+                                raise MigrationError("Another partial file must be recovered first.")
+                            while block := src.read(CHUNK):
+                                size += len(block)
+                                if size > item["size"]:
+                                    raise MigrationError("Restore stream exceeds verified size.")
+                                dst.write(block)
+                                h.update(block)
+                                written.advance(len(block))
+                            dst.flush()
+                            os.fsync(dst.fileno())
+                        if size != item["size"] or h.hexdigest() != item["sha256"]:
+                            raise MigrationError("Restored file checksum/size mismatch.")
+                    if not complete:
+                        try:
+                            os.utime(parts[-1], ns=(item["mtime_ns"], item["mtime_ns"]),
+                                     dir_fd=parent_fd, follow_symlinks=False)
+                        except OSError:
+                            say("  WARNING: unable to preserve a modification time.")
+                    if journal and journal.data['current_file'] == name:
+                        journal.current(None)
                 finally:
                     os.close(parent_fd)
                 written.advance(files=1)
         written.finish()
-    finally:
-        os.close(root_fd)
     os.sync() if hasattr(os, "sync") else None
+
+
+def recovery_target(archive, manifest, journal):
+    """Bind a no-format recovery to the recorded volume, not a reusable diskN."""
+    candidates = []
+    for disk in external_disks():
+        if any(str(p.get('info', {}).get('VolumeUUID') or p.get('info', {}).get('DiskUUID')) ==
+               journal.data['volume_uuid'] for p in disk['partitions']):
+            candidates.append(disk)
+    if len(candidates) != 1:
+        raise MigrationError("Exactly one mounted target must match the restore journal volume UUID.")
+    disk = candidates[0]
+    identity = disk_safety.target_identity(disk, MigrationError)
+    fs = normalized_fs(disk['partitions'][0]['fstype'])
+    if (identity[1] != journal.data['volume_uuid'] or disk['size'] != journal.data['capacity_bytes'] or
+            fs != journal.data['filesystem']):
+        raise MigrationError("Recovery target identity, capacity or filesystem differs from the journal.")
+    if manifest['source_disk'].get('volume_uuid') == identity[1]:
+        raise MigrationError("Source volume is protected; refusing recovery.")
+    disk_safety.protect_locations(disk, protected_locations(archive), diskutil_plist, MigrationError)
+    root = after_format_volume(disk['id'], fs)  # Only queries layout; never formats.
+    if disk_safety.physical_disks(root, diskutil_plist, MigrationError) != {disk['id']}:
+        raise MigrationError("Recovery mount does not belong to the recorded physical target.")
+    refreshed = next((d for d in external_disks() if d['id'] == disk['id']), None)
+    if not refreshed or disk_safety.target_identity(refreshed, MigrationError) != identity:
+        raise MigrationError("Recovery target changed during preflight.")
+    info = root.stat()
+    return disk, root, (info.st_dev, info.st_ino)
+
+
+def recover_backup(archive, manifest, read_only=False):
+    journal = restore_recovery.Journal.load(archive, manifest, MigrationError)
+    disk, root, identity = recovery_target(archive, manifest, journal)
+    report = inspect_restore(archive, manifest, root, journal, identity)
+    say("Recovery inspection: " + ', '.join(f"{key}={report[key]}" for key in
+        ('complete', 'missing', 'partial', 'conflicts', 'unexpected')))
+    if report['conflicts'] or report['unexpected']:
+        raise MigrationError("Recovery stopped: mismatching or unexpected target data. Preserve the card and backup.")
+    if read_only:
+        say("READ ONLY: no target, journal, lock or eject operation performed.")
+        return
+    say(f"Resume target: /dev/{disk['id']} ({human(disk['size'])}), {journal.data['filesystem'].upper()}. No formatting.")
+    if input(f"Type exactly 'RESUME {disk['id']}' to copy missing bytes: ").strip() != f"RESUME {disk['id']}":
+        raise MigrationError("Resume not confirmed; target untouched.")
+    _, refreshed_root, refreshed_identity = recovery_target(archive, manifest, journal)
+    if refreshed_root != root or refreshed_identity != identity:
+        raise MigrationError("Recovery mount changed after confirmation.")
+    # Reserve allocation overhead only for data/directories still missing.
+    if report['remaining']['files'] or report['remaining']['directories']:
+        check_formatted_target_space(root, report['remaining'], journal.data['filesystem'])
+    try:
+        restore_archive(archive, manifest, root, identity, journal=journal, resume=True)
+        verify_restored(root, manifest)
+        journal.verified()
+        eject(disk['id'])
+        journal.complete()
+    except BaseException:
+        recovery_notice()
+        raise
+    say("RECOVERY SUCCESSFUL: full target SHA-256/tree verified and safely ejected. Backup retained.")
+
+
+def recovery_notice():
+    say("RESTORE INCOMPLETE. KEEP ORIGINAL CARD, ZIP, MANIFEST AND LOCAL RESTORE JOURNAL.")
+    say("Use --check-restore BACKUP.zip to inspect, then --resume BACKUP.zip to continue without formatting.")
 
 
 def verify_restored(root: Path, manifest: dict):
@@ -1118,16 +1327,24 @@ def main():
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--backup-only", action="store_true", help="Back up & verify source, then eject (no formatting)")
     group.add_argument("--restore", type=Path, metavar="BACKUP.zip", help="Restore an existing backup (after verification)")
+    group.add_argument("--verify-backup", type=Path, metavar="BACKUP.zip", help="Read-only ZIP, manifest and every-file SHA-256 verification; no card required")
+    group.add_argument("--check-restore", type=Path, metavar="BACKUP.zip", help="Read-only inspection of a journal-bound interrupted restore")
+    group.add_argument("--resume", type=Path, metavar="BACKUP.zip", help="Resume a journal-bound restore without formatting or replacing existing bytes")
+    group.add_argument("--diagnose", action="store_true", help="Print read-only macOS disk and CrossInk detection details, then exit")
+    parser.add_argument("--dry-run", action="store_true", help="With --restore: read-only target preflight; with --resume: inspect recovery only")
     parser.add_argument(
         "--filesystem", choices=("auto", "fat32", "exfat", "source"), default="auto",
         help="Target format (all MBR): auto [default; FAT32 if target <=32 GiB, exFAT otherwise], "
              "fat32, exfat, or source (preserve original)",
     )
     parser.add_argument("--version", action="version", version=f"xteink-sd-migrator {__version__}")
-    parser.add_argument("--diagnose", action="store_true", help="Print read-only macOS disk and CrossInk detection details, then exit")
     parser.add_argument("--allow-smaller-target", action="store_true",
                         help="Allow smaller physical card if file-level data fits (still checks usable space)")
     args = parser.parse_args()
+    if args.dry_run and not (args.restore or args.resume):
+        parser.error("--dry-run requires --restore BACKUP.zip or --resume BACKUP.zip; create a backup first with --backup-only")
+    if (args.resume or args.check_restore or args.verify_backup) and (args.allow_smaller_target or args.filesystem != 'auto'):
+        parser.error("filesystem and smaller-target options apply only to a new migration/restore")
     if sys.platform != "darwin":
         raise MigrationError("This tool only supports macOS (requires diskutil).")
     if sys.version_info < (3, 9):
@@ -1135,11 +1352,26 @@ def main():
     say("=" * 65)
     say(f" XTEINK SD Migrator v{__version__} — macOS")
     say("=" * 65)
-    say("WARNING: Any target disk you confirm will be COMPLETELY ERASED.")
+    if not (args.diagnose or args.verify_backup or args.check_restore or args.resume or args.dry_run):
+        say("WARNING: Any target disk you confirm will be COMPLETELY ERASED.")
     say("Keep the original card. Shut down the reader before physically removing the card.")
     say("The backup includes settings; protect it as it may contain credentials.")
     if args.diagnose:
         diagnose_disks()
+        return
+    if args.verify_backup:
+        _, manifest = load_backup(args.verify_backup)
+        say(f"BACKUP VERIFIED: {manifest['file_count']} files, {len(manifest['directories'])} directories, {human(manifest['total_bytes'])}.")
+        say("Read-only verification complete; no SD card operation performed.")
+        return
+    if args.resume or args.check_restore:
+        archive, manifest = load_backup(args.resume or args.check_restore)
+        read_only = bool(args.check_restore or args.dry_run)
+        if read_only:
+            recover_backup(archive, manifest, read_only=True)
+        else:
+            with restore_recovery.locked(archive, MigrationError):
+                recover_backup(archive, manifest)
         return
     source_id = None
     if args.restore:
@@ -1157,10 +1389,24 @@ def main():
     # AUTO requires target capacity, so choose_target resolves & preflights format
     # after examining the physical card, before showing the erase confirmations.
     archive, manifest = load_backup(archive)
-    target = choose_target(manifest, source_id, allow_smaller_target=args.allow_smaller_target,
-                           filesystem=args.filesystem)
+    if args.dry_run:
+        restore_recovery.require_new(archive, MigrationError)
+        target = choose_target(manifest, source_id, allow_smaller_target=args.allow_smaller_target,
+                               filesystem=args.filesystem, dry_run=True)
+        preflight_target(target, archive, manifest, args.allow_smaller_target)
+        say("PREFLIGHT PASSED: backup integrity, target identity, source protection, protected storage, capacity and filesystem limits.")
+        say("Usable space and the created MBR/filesystem can only be checked after a future format. Rerunning requires fresh checks and both erase confirmations.")
+        return
+    with restore_recovery.locked(archive, MigrationError):
+        restore_recovery.require_new(archive, MigrationError)
+        target = choose_target(manifest, source_id, allow_smaller_target=args.allow_smaller_target,
+                               filesystem=args.filesystem)
+        migrate_to_target(target, archive, manifest, args.allow_smaller_target)
+
+
+def migrate_to_target(target, archive, manifest, allow_smaller_target=False):
     target_fs = target["target_filesystem"]
-    erase_target(target, archive, manifest, args.allow_smaller_target)
+    erase_target(target, archive, manifest, allow_smaller_target)
     dst = after_format_volume(target["id"], target_fs)
     post_disk = next((d for d in external_disks() if d["id"] == target["id"]), None)
     if not post_disk or disk_safety.hardware_identity(post_disk) != disk_safety.hardware_identity(target):
@@ -1172,13 +1418,23 @@ def main():
     # Critical second preflight: physical media size is not usable filesystem size.
     # Verify available space BEFORE creating directories or extracting ZIP contents.
     check_formatted_target_space(dst, manifest, target_fs)
+    # Persist the new formatted volume identity on local storage before first copy.
+    post_identity = disk_safety.target_identity(post_disk, MigrationError)
+    post_part = post_disk['partitions'][0]
+    if (normalized_fs(post_part['fstype']) != target_fs or
+            Path(post_part['mount']).resolve(strict=True) != dst.resolve(strict=True)):
+        raise MigrationError("Formatted volume filesystem/mount changed before journaling; refusing restore.")
+    journal = restore_recovery.Journal.create(archive, manifest, post_identity[1],
+                                              post_disk['size'], target_fs, MigrationError)
     try:
-        restore_archive(archive, manifest, dst, expected_identity=mount_identity)
+        restore_archive(archive, manifest, dst, expected_identity=mount_identity, journal=journal)
         verify_restored(dst, manifest)
-    except Exception:
-        say("RESTORE FAILED. Target may be incomplete. KEEP ORIGINAL CARD AND ZIP BACKUP.")
+        journal.verified()
+        eject(target["id"])
+        journal.complete()
+    except BaseException:
+        recovery_notice()
         raise
-    eject(target["id"])
     say("\n" + "=" * 65)
     say("MIGRATION SUCCESSFUL: target SHA-256 verified and safely ejected.")
     say("Next: insert new card into your XTEINK reader and test books, fonts, bookmarks and reading progress.")

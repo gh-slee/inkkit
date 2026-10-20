@@ -11,7 +11,7 @@ import sys
 
 PUBLIC_PATHS = {
     '.gitignore', '.gitattributes', 'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md',
-    'AGENTS.md', 'CHANGELOG.md', 'xteink_sd_migrate.py', 'disk_safety.py',
+    'AGENTS.md', 'CHANGELOG.md', 'xteink_sd_migrate.py', 'disk_safety.py', 'restore_recovery.py',
     '.github/workflows/tests.yml', '.github/ISSUE_TEMPLATE/bug_report.md',
     '.github/pull_request_template.md', '.githooks/pre-commit', '.githooks/pre-push',
     'docs/safety.md', 'docs/troubleshooting.md', 'docs/compatibility.md',
@@ -19,6 +19,7 @@ PUBLIC_PATHS = {
     'assets/readme/xteink-mark.svg', 'assets/readme/README.md',
     'scripts/check_publication.py', 'scripts/install_git_hooks.py',
     'tests/test_xteink_sd_migrate.py', 'tests/test_safety.py', 'tests/test_publication.py',
+    'tests/test_recovery.py',
 }
 MAX_BYTES = 2 * 1024**2
 SECRET_PATTERNS = (

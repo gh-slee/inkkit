@@ -1,8 +1,8 @@
 # Source publication safeguards
 
 Backups are deliberately local beside the script. `.gitignore` excludes the entire
-`xteink-x3-backup/` directory, ZIPs, manifests/checksums, reader data, private settings,
-credentials, work files, private owner overrides at every depth, one-time setup
+`xteink-x3-backup/` directory, ZIPs, manifests/checksums, restore journals/locks at
+every depth, reader data, private settings, credentials, work files, private owner overrides at every depth, one-time setup
 requests and original versioned input scripts. It does not untrack
 files already committed, encrypt backups or inspect outgoing Git objects.
 
@@ -75,8 +75,8 @@ exposed: removing the latest copy does not remove historical blobs or downloaded
 ## Source archives and unsupported packaging
 
 `.gitattributes` marks root/nested private overrides, setup requests, backup and
-private/work directories `export-ignore`. Git source archives include tracked
-content only; these rules add a second boundary even if private material is
+private/work directories and recovery sidecars at every depth `export-ignore`.
+Git source archives include tracked content only; these rules add a second boundary even if private material is
 accidentally tracked. Index/history guards must still reject such a repository;
 archive exclusion does not remediate a historical disclosure.
 
