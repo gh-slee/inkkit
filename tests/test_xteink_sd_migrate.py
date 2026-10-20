@@ -231,6 +231,7 @@ class AutoFormatPolicyTests(unittest.TestCase):
                  patch.object(m, 'choose_target', return_value={'id': 'disk9', 'target_filesystem': resolved}) as chooser, \
                  patch.object(m, 'erase_target') as gate, \
                  patch.object(m, 'external_disks', return_value=[{'id':'disk9'}]), \
+                 patch.object(m.disk_safety, 'physical_disks', return_value={'disk9'}), \
                  patch.object(m, 'after_format_volume', return_value=Path('/tmp')), \
                  patch.object(m, 'check_formatted_target_space'), \
                  patch.object(m, 'restore_archive'), \

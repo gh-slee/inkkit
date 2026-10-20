@@ -66,7 +66,7 @@ def target_identity(disk, error):
         raise error('Target needs exactly one mounted FAT32/exFAT partition for reliable identification.')
     part = parts[0]
     pinfo = part.get('info', {})
-    if pinfo.get('ParentWholeDisk', disk['id']) != disk['id']:
+    if pinfo.get('ParentWholeDisk') != disk['id']:
         raise error('Target partition parent changed.')
     fs = str(part.get('fstype', '')).upper().replace('-', '').replace(' ', '').replace('_', '')
     if 'FAT32' not in fs and 'EXFAT' not in fs:

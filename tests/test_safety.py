@@ -61,7 +61,7 @@ class SafetyTests(unittest.TestCase):
 
     def gate(self, disks=None, **kwargs):
         with patch.object(m, 'external_disks', side_effect=disks or [[self.disk], [self.disk]]), \
-             patch.object(safety, 'physical_disks', return_value={'disk0'}), \
+             patch.object(safety, 'physical_disks', side_effect=lambda path, *a: {'disk9'} if Path(path) == self.mount else {'disk0'}), \
              patch.object(m, 'invoke_status') as erase:
             m.erase_target(self.disk, self.archive, self.manifest, **kwargs)
             erase.assert_called_once_with('Formatting target SD', 'diskutil', 'eraseDisk',
@@ -133,7 +133,7 @@ class SafetyTests(unittest.TestCase):
         swapped['partitions'][0]['info']['VolumeUUID'] = 'another-card'
         for snapshots in ([swapped], [self.disk, swapped]):
             with patch.object(m, 'external_disks', side_effect=[[d] for d in snapshots]), \
-                 patch.object(safety, 'physical_disks', return_value={'disk0'}), \
+                 patch.object(safety, 'physical_disks', side_effect=lambda path, *a: {'disk9'} if Path(path) == self.mount else {'disk0'}), \
                  patch.object(m, 'invoke_status') as erase:
                 with self.assertRaises(m.MigrationError): m.erase_target(self.disk, self.archive, self.manifest)
                 erase.assert_not_called()
@@ -142,7 +142,7 @@ class SafetyTests(unittest.TestCase):
         self.manifest['source_disk']['volume_uuid'] = 'synthetic-target'
         self.write_zip()
         with patch.object(m, 'external_disks', return_value=[self.disk]), \
-             patch.object(safety, 'physical_disks', return_value={'disk0'}), \
+             patch.object(safety, 'physical_disks', side_effect=lambda path, *a: {'disk9'} if Path(path) == self.mount else {'disk0'}), \
              patch.object(m, 'invoke_status') as erase:
             with self.assertRaises(m.MigrationError): m.erase_target(self.disk, self.archive, self.manifest)
             erase.assert_not_called()
@@ -386,7 +386,7 @@ class SafetyTests(unittest.TestCase):
         self.manifest['source_disk']['capacity_bytes'] = self.disk['size'] + 1
         self.write_zip()
         with patch.object(m, 'external_disks', return_value=[self.disk]), \
-             patch.object(safety, 'physical_disks', return_value={'disk0'}), \
+             patch.object(safety, 'physical_disks', side_effect=lambda path, *a: {'disk9'} if Path(path) == self.mount else {'disk0'}), \
              patch.object(m, 'invoke_status') as erase:
             with self.assertRaises(m.MigrationError): m.erase_target(self.disk, self.archive, self.manifest)
             erase.assert_not_called()
@@ -395,6 +395,20 @@ class SafetyTests(unittest.TestCase):
     def test_progress_zero_byte_mismatch(self):
         progress = m.Progress('Synthetic', 0, 1)
         with self.assertRaises(m.MigrationError): progress.finish()
+
+
+    def test_stale_target_mount_blocks_erase(self):
+        with patch.object(m, 'external_disks', return_value=[self.disk]), \
+             patch.object(safety, 'physical_disks', return_value={'disk0'}), \
+             patch.object(m, 'invoke_status') as erase:
+            with self.assertRaisesRegex(m.MigrationError, 'mount no longer belongs'):
+                m.erase_target(self.disk, self.archive, self.manifest)
+            erase.assert_not_called()
+
+    def test_restore_mount_replaced_before_open(self):
+        with self.assertRaisesRegex(m.MigrationError, 'mount changed'):
+            m.restore_archive(self.archive, self.manifest, self.mount, expected_identity=(-1, -1))
+        self.assertEqual(list(self.mount.iterdir()), [])
 
 
 

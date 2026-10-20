@@ -420,6 +420,9 @@ def show_disks(disks):
         ) or "No readable partitions"
         say(f"  {idx}. /dev/{disk['id']}: {disk['name']} ({human(disk['size'])})")
         say(f"     {vols}")
+        info = disk.get("info", {})
+        say(f"     Bus: {info.get('BusProtocol', info.get('Protocol', 'unknown'))}; "
+            f"removable: {removable_media(info)}; internal: {info.get('Internal', 'unknown')}")
 
 
 def choose_disk(disks, purpose):
@@ -979,6 +982,9 @@ def erase_target(target, archive, manifest, allow_smaller=False):
     if fs not in ('fat32', 'exfat'):
         raise MigrationError("Unrecognized target filesystem.")
     check_fs_file_limits(verified, fs)
+    if disk_safety.physical_disks(Path(current['partitions'][0]['mount']),
+                                  diskutil_plist, MigrationError) != {current['id']}:
+        raise MigrationError("Target mount no longer belongs to the confirmed physical disk.")
     # Re-query after the potentially slow integrity/protected-storage checks.
     last = next((d for d in external_disks() if d['id'] == target['id']), None)
     if not last or disk_safety.target_identity(last, MigrationError) != target['confirmed_identity']:
@@ -1011,14 +1017,14 @@ def after_format_volume(target_id: str, expected_fs: str = "fat32"):
     return Path(p["mount"])
 
 
-def restore_archive(archive: Path, manifest: dict, root: Path):
+def restore_archive(archive: Path, manifest: dict, root: Path, expected_identity=None):
     say("\n[4/5] Restoring verified backup...")
-    verify_archive_contents(archive, manifest)
     # Anchor every write to an open directory descriptor. An unmounted path must
     # never fall back to creating files on the Mac beneath the old mount point.
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     root_fd = os.open(root, flags)
-    root_device = os.fstat(root_fd).st_dev
+    root_stat = os.fstat(root_fd)
+    root_device = root_stat.st_dev
 
     def directory_fd(parts):
         fd = os.dup(root_fd)
@@ -1039,6 +1045,9 @@ def restore_archive(archive: Path, manifest: dict, root: Path):
             raise
 
     try:
+        if expected_identity is not None and (root_stat.st_dev, root_stat.st_ino) != expected_identity:
+            raise MigrationError("Restore mount changed before opening; refusing write.")
+        verify_archive_contents(archive, manifest)
         written = Progress("SD restore", manifest["total_bytes"], len(manifest["files"]))
         with zipfile.ZipFile(archive, "r") as zf:
             for name in sorted(manifest["directories"], key=lambda n: (n.count("/"), n)):
@@ -1156,11 +1165,15 @@ def main():
     post_disk = next((d for d in external_disks() if d["id"] == target["id"]), None)
     if not post_disk or disk_safety.hardware_identity(post_disk) != disk_safety.hardware_identity(target):
         raise MigrationError("Target hardware changed after format; refusing restore.")
+    if disk_safety.physical_disks(dst, diskutil_plist, MigrationError) != {target["id"]}:
+        raise MigrationError("Formatted mount no longer belongs to target; refusing restore.")
+    mount_stat = dst.stat()
+    mount_identity = (mount_stat.st_dev, mount_stat.st_ino)
     # Critical second preflight: physical media size is not usable filesystem size.
     # Verify available space BEFORE creating directories or extracting ZIP contents.
     check_formatted_target_space(dst, manifest, target_fs)
     try:
-        restore_archive(archive, manifest, dst)
+        restore_archive(archive, manifest, dst, expected_identity=mount_identity)
         verify_restored(dst, manifest)
     except Exception:
         say("RESTORE FAILED. Target may be incomplete. KEEP ORIGINAL CARD AND ZIP BACKUP.")
