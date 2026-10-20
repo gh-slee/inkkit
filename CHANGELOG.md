@@ -2,6 +2,11 @@
 
 ## 0.1.0-beta.3 (unreleased)
 
+- Exercise journal creation/write/fsync/atomic-replace/directory-sync failures,
+  failed completion checkpoints, mid-write ENOSPC during restore/resume, target
+  sync errors, Ctrl-C and journal cleanup failure with synthetic retry tests.
+- Document persistence-failure recovery and manual prerelease validation. These
+  checks preserve the existing runtime behavior; no new hardware claim is made.
 - Add read-only `--verify-backup` using full legacy ZIP/manifest/hash validation.
 - Add `--restore BACKUP.zip --dry-run` with shared target/storage/capacity preflight;
   no formatting, copying, backup/journal/lock creation or eject.

@@ -41,6 +41,14 @@ metadata or corrupted completed file may prevent safe automatic recovery. Only t
 current partial file can be resumed; filesystem power-loss effects can exceed that
 boundary. Successful preflight/recovery does not prove future card reliability.
 
+Persistence failures stop copying before advancing to the next file. A failed
+temporary journal write or rename leaves the previous journal intact; a failed
+directory fsync after rename can leave the newer journal visible even though its
+durability was not confirmed. Always reload it through the normal recovery flow.
+Synthetic tests cover those boundaries and real temporary-file prefix writes that
+raise ENOSPC. Successful retries check every file again; they do not establish
+power-loss durability of any physical card or filesystem.
+
 Resource policy: at most 200,000 files/directories, 2 TiB declared expanded data, 128 MiB manifest/ZIP central directory, expansion ratio <=10,000. Size/count/path/checksum mismatches, duplicate JSON keys, duplicate/case/Unicode aliases, traversal, symlinks/special files, encryption and split archives are rejected. Large ZIP64 backups remain supported. These conservative limits may reject legitimate unusual archives; do not disable them for an untrusted archive.
 
 Source changes detected during scanning/reading abort backup. SHA-256 checks consistency, not original source health or authenticity. Protect both ZIP and manifest from tampering. Unix mode 600 does not encrypt files, and removable FAT filesystems may not enforce those permissions.

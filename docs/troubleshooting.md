@@ -66,6 +66,28 @@ there is no force-wipe override. Use a separate known disposable target only aft
 the failure is understood. A pending journal blocks starting a new erase with that
 backup; do not discard recovery evidence to silence the guard.
 
+## Storage, sync or journal permission errors
+
+An ENOSPC error can come from the target or the local backup/journal storage. A
+target write can persist only a prefix before reporting failure. Keep that file
+and the journal: after resolving the underlying space problem, inspection checks
+the prefix and a confirmed resume can append the rest. An existing complete file
+is checked and skipped, including when a previous file-sync or checkpoint update
+failed. The full usable-space preflight still applies to remaining data.
+
+Journal creation, write, fsync or rename failures stop copying. Handled failures
+remove their temporary journal file and preserve the earlier valid journal. If
+rename already completed before a directory-sync failure, the new journal may be
+visible; let `--check-restore` validate it. If no journal was ever created, automatic
+resume remains unavailable. Preserve the original card and verified backup.
+
+Resolve the storage/permission problem before retrying; do not edit journal fields
+or backup hashes. A failed verified checkpoint prevents eject. A failed journal
+cleanup after successful eject may leave a valid `verified` journal; reconnect the
+same replacement and use `--resume` to verify and retry completion. Ctrl-C releases
+the advisory lock, so a later process can retry. An actual power cut or damaged
+filesystem may still require manual investigation.
+
 Capacity failure before format leaves the target untouched. Failure after format can leave it empty; use a larger card. Different cards with the same marketed size can have different actual bytes. `--allow-smaller-target` permits an intentional smaller card but never skips usable-space checks.
 
 ## The XTEINK reader does not recognize the new card

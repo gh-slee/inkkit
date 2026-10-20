@@ -86,3 +86,33 @@ ZIP commands, screenshots, logs and attachments do not honor Git export rules; k
 private guidance and data out of them explicitly. Supported source exports must use
 reviewed Git content, never a whole private checkout. Privacy regression tests use
 invented root/nested instructions in disposable repositories only.
+
+## Manual prerelease preparation
+
+Keep releases separate from source pushes and PR merges. Before creating a beta tag
+or release, identify the exact candidate commit and confirm its source tree,
+`--version`, changelog and approved release notes agree. Confirm PR integration with
+GitHub's explicit merged state and merge commit; a commit title, matching tree or
+successful feature CI alone is not proof of PR merge.
+
+Validate the candidate with synthetic tests, compilation, CLI smoke checks and
+worktree/index/history publication audits. Inspect a Git source export and run its
+CLI from a separate directory, including every runtime helper. Export only reviewed
+Git source. GitHub's automatically generated source archives are sufficient for
+this dependency-free CLI; do not attach a checkout, backups, logs or private state.
+
+Verify successful macOS/Python 3.9 and 3.12 jobs for the candidate and record the
+head SHA, run URL and actual test count. A manual run of the existing test workflow
+can supply evidence when no matching push run exists. It does not publish anything
+and does not replace validation of a later candidate commit.
+
+Prepare notes describing user-visible changes, legacy backup compatibility,
+validation and known recovery/hardware limits. Keep the changelog marked unreleased
+while preparing. Obtain explicit approval for the tag name, exact target SHA,
+prerelease designation, notes and any assets before publishing. Revalidate the
+target SHA and tag availability immediately before the approved operation. A beta
+release must be marked prerelease and must not be promoted to stable implicitly.
+
+After publication, verify the tag resolves to the approved commit, release metadata
+and source file list match, and no private assets were attached. This is a manual
+maintenance procedure; no automatic release workflow is configured.

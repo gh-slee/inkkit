@@ -1,11 +1,13 @@
 """Synthetic read-only preflight and interruption recovery; no real disk queries."""
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
 import copy
+import errno
 import hashlib
 import io
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
 import tempfile
 import unittest
@@ -98,6 +100,228 @@ class RecoveryTests(unittest.TestCase):
     def snapshot(self):
         return {str(path.relative_to(self.root)): (path.read_bytes(), path.stat().st_mtime_ns)
                 for path in self.root.rglob('*') if path.is_file() and not path.is_symlink()}
+
+    @contextmanager
+    def journal_fault(self, stage):
+        """Fail a real local journal save at one of its persistence boundaries."""
+        error = OSError(errno.ENOSPC, 'Synthetic journal storage full')
+        if stage == 'create':
+            with patch.object(recovery.tempfile, 'mkstemp', side_effect=error):
+                yield
+        elif stage == 'write':
+            def fail_write(data, stream, **kwargs):
+                stream.write('{"synthetic_partial":')
+                raise error
+            with patch.object(recovery.json, 'dump', side_effect=fail_write):
+                yield
+        elif stage == 'replace':
+            with patch.object(recovery.os, 'replace', side_effect=error):
+                yield
+        else:
+            real_fsync = os.fsync
+            def fail_sync(fd):
+                directory = stat.S_ISDIR(os.fstat(fd).st_mode)
+                if directory == (stage == 'directory-sync'):
+                    raise error
+                return real_fsync(fd)
+            with patch.object(recovery.os, 'fsync', side_effect=fail_sync):
+                yield
+
+    @contextmanager
+    def target_write_fault(self, name, budget=6, error=None):
+        """Persist only a prefix of a target write, then inject ENOSPC/signal."""
+        real_fdopen = os.fdopen
+        destination = self.mount / name
+        error = error or OSError(errno.ENOSPC, 'Synthetic target storage full')
+        class Writer:
+            def __init__(self, stream):
+                self.stream = stream
+                self.remaining = budget
+            def __enter__(self):
+                self.stream.__enter__()
+                return self
+            def __exit__(self, *args):
+                return self.stream.__exit__(*args)
+            def __getattr__(self, key):
+                return getattr(self.stream, key)
+            def write(self, data):
+                count = min(len(data), self.remaining)
+                if count:
+                    self.stream.write(data[:count])
+                    self.stream.flush()
+                    self.remaining -= count
+                if count < len(data):
+                    raise error
+                return count
+        def open_stream(fd, mode, *args, **kwargs):
+            match = (mode in ('w+b', 'r+b') and destination.exists() and
+                     os.fstat(fd).st_ino == destination.stat().st_ino)
+            stream = real_fdopen(fd, mode, *args, **kwargs)
+            return Writer(stream) if match else stream
+        with patch.object(m.os, 'fdopen', side_effect=open_stream):
+            yield
+
+    def assert_backup_retained(self):
+        self.assertEqual(self.archive.read_bytes(), self.backup_before)
+        _, manifest = m.load_backup(self.archive)
+        self.assertEqual(manifest, self.manifest)
+        self.assertEqual(list(self.root.glob('.restore-journal-*.partial')), [])
+
+    def test_initial_journal_failure_prevents_first_copy(self):
+        for stage in ('create', 'write', 'file-sync', 'replace', 'directory-sync'):
+            with self.subTest(stage=stage), self.device_queries(), patch.object(m, 'erase_target'), \
+                 patch.object(m, 'restore_archive') as copy_files, patch.object(m, 'eject') as eject:
+                with self.journal_fault(stage):
+                    with self.assertRaises(OSError):
+                        m.migrate_to_target(self.disk, self.archive, self.manifest)
+                copy_files.assert_not_called()
+                eject.assert_not_called()
+                self.assertEqual(list(self.mount.iterdir()), [])
+                self.assert_backup_retained()
+                # A failed directory sync can leave a valid new journal visible.
+                if recovery.state_path(self.archive).exists():
+                    self.read_journal()
+                    recovery.state_path(self.archive).unlink()
+
+    def test_failed_active_file_checkpoint_stops_copy_and_can_retry(self):
+        for stage in ('create', 'write', 'file-sync', 'replace', 'directory-sync'):
+            with self.subTest(stage=stage):
+                journal = self.journal()
+                with self.journal_fault(stage):
+                    with self.assertRaises(OSError):
+                        m.restore_archive(self.archive, self.manifest, self.mount, journal=journal)
+                self.assertEqual([p for p in self.mount.rglob('*') if p.is_file()], [])
+                self.assert_backup_retained()
+                fresh = self.read_journal()
+                m.restore_archive(self.archive, self.manifest, self.mount, journal=fresh, resume=True)
+                m.verify_restored(self.mount, self.manifest)
+                # Reset only these disposable fixture files for the next fault.
+                shutil.rmtree(self.mount)
+                self.mount.mkdir()
+                recovery.state_path(self.archive).unlink()
+
+    def test_failed_checkpoint_after_file_fsync_preserves_completed_file(self):
+        journal = self.journal()
+        real_current = journal.current
+        def checkpoint(name):
+            if name is None:
+                with self.journal_fault('replace'):
+                    real_current(name)
+            else:
+                real_current(name)
+        with patch.object(journal, 'current', side_effect=checkpoint):
+            with self.assertRaises(OSError):
+                m.restore_archive(self.archive, self.manifest, self.mount, journal=journal)
+        complete = self.mount / '.crosspoint/state.json'
+        before = complete.stat()
+        self.assertEqual(complete.read_bytes(), self.payload['.crosspoint/state.json'])
+        fresh = self.read_journal()
+        self.assertEqual(fresh.data['current_file'], '.crosspoint/state.json')
+        m.restore_archive(self.archive, self.manifest, self.mount, journal=fresh, resume=True)
+        self.assertEqual((complete.stat().st_ino, complete.stat().st_mtime_ns),
+                         (before.st_ino, before.st_mtime_ns))
+        m.verify_restored(self.mount, self.manifest)
+        self.assert_backup_retained()
+
+    def test_target_enospc_retains_prefix_and_resumes(self):
+        journal = self.journal()
+        name = 'books/story.txt'
+        with self.target_write_fault(name), patch.object(m, 'CHUNK', 4):
+            with self.assertRaises(OSError) as exc:
+                m.restore_archive(self.archive, self.manifest, self.mount, journal=journal)
+        self.assertEqual(exc.exception.errno, errno.ENOSPC)
+        self.assertEqual((self.mount / name).read_bytes(), self.payload[name][:6])
+        fresh = self.read_journal()
+        self.assertEqual(fresh.data['current_file'], name)
+        m.restore_archive(self.archive, self.manifest, self.mount, journal=fresh, resume=True)
+        m.verify_restored(self.mount, self.manifest)
+        self.assert_backup_retained()
+
+    def test_enospc_during_resume_keeps_old_prefix_and_retries(self):
+        self.interrupted()
+        name = 'books/story.txt'
+        completed = self.mount / '.crosspoint/state.json'
+        before = completed.stat()
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), \
+             self.target_write_fault(name), patch.object(m, 'CHUNK', 4), \
+             patch.object(m, 'eject') as eject, patch.object(m, 'erase_target') as erase:
+            with self.assertRaises(OSError) as exc:
+                self.cli('--resume', self.archive)
+            self.assertEqual(exc.exception.errno, errno.ENOSPC)
+            eject.assert_not_called()
+            erase.assert_not_called()
+        self.assertEqual((self.mount / name).read_bytes(), self.payload[name][:10])
+        self.assertEqual(self.read_journal().data['current_file'], name)
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), patch.object(m, 'eject'):
+            self.cli('--resume', self.archive)
+        m.verify_restored(self.mount, self.manifest)
+        self.assertEqual((completed.stat().st_ino, completed.stat().st_mtime_ns),
+                         (before.st_ino, before.st_mtime_ns))
+        self.assertFalse(recovery.state_path(self.archive).exists())
+        self.assert_backup_retained()
+
+    def test_keyboard_interrupt_during_write_releases_lock_for_retry(self):
+        self.interrupted()
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), \
+             self.target_write_fault('books/story.txt', error=KeyboardInterrupt()), \
+             patch.object(m, 'eject') as eject:
+            with self.assertRaises(KeyboardInterrupt):
+                self.cli('--resume', self.archive)
+            eject.assert_not_called()
+        with recovery.locked(self.archive, m.MigrationError):
+            self.assertIsNotNone(self.read_journal())
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), patch.object(m, 'eject'):
+            self.cli('--resume', self.archive)
+        m.verify_restored(self.mount, self.manifest)
+        self.assert_backup_retained()
+
+    def test_target_fsync_failure_retains_checkpoint_for_retry(self):
+        journal = self.journal()
+        destination = self.mount / 'books/story.txt'
+        real_fsync = os.fsync
+        def fail_sync(fd):
+            if destination.exists() and os.fstat(fd).st_ino == destination.stat().st_ino:
+                raise OSError(errno.EIO, 'Synthetic target sync failure')
+            real_fsync(fd)
+        with patch.object(m.os, 'fsync', side_effect=fail_sync):
+            with self.assertRaises(OSError):
+                m.restore_archive(self.archive, self.manifest, self.mount, journal=journal)
+        fresh = self.read_journal()
+        self.assertEqual(fresh.data['current_file'], 'books/story.txt')
+        m.restore_archive(self.archive, self.manifest, self.mount, journal=fresh, resume=True)
+        m.verify_restored(self.mount, self.manifest)
+        self.assert_backup_retained()
+
+    def test_failed_verified_checkpoint_prevents_eject_and_can_retry(self):
+        self.interrupted()
+        real_verified = recovery.Journal.verified
+        def checkpoint(journal):
+            with self.journal_fault('replace'):
+                real_verified(journal)
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), \
+             patch.object(recovery.Journal, 'verified', checkpoint), patch.object(m, 'eject') as eject:
+            with self.assertRaises(OSError): self.cli('--resume', self.archive)
+            eject.assert_not_called()
+        m.verify_restored(self.mount, self.manifest)
+        self.read_journal()
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), patch.object(m, 'eject'):
+            self.cli('--resume', self.archive)
+        self.assertFalse(recovery.state_path(self.archive).exists())
+        self.assert_backup_retained()
+
+    def test_failed_journal_cleanup_can_verify_and_eject_again(self):
+        self.interrupted()
+        def fail_cleanup(journal):
+            raise OSError(errno.EACCES, 'Synthetic journal removal denied')
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), \
+             patch.object(recovery.Journal, 'complete', fail_cleanup), patch.object(m, 'eject') as eject:
+            with self.assertRaises(OSError): self.cli('--resume', self.archive)
+            eject.assert_called_once_with('disk9')
+        self.assertEqual(self.read_journal().data['phase'], 'verified')
+        with self.device_queries(), patch('builtins.input', return_value='RESUME disk9'), patch.object(m, 'eject'):
+            self.cli('--resume', self.archive)
+        self.assertFalse(recovery.state_path(self.archive).exists())
+        self.assert_backup_retained()
 
     def test_offline_verify_no_disk_or_write_operations(self):
         before = self.snapshot()

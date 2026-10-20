@@ -32,6 +32,11 @@ storage, FAT32 limits, capacity, MBR/filesystem checks and interrupted restore.
 `XTEINK_TESTING=1` blocks real calls through the mutation runner; keep it set in CI.
 Recovery tests inject mid-file failures, verify read-only modes, match journal/volume
 identities, reject conflicting bytes, check lock contention, and retry failed ejects.
+Persistence fault tests exercise actual temporary-file writes with injected journal
+ENOSPC/fsync/rename failures, mid-target-write ENOSPC and target sync errors. They
+reload the retained journal and retry, checking full hashes and complete-file
+identities/timestamps. Ctrl-C releases the per-backup lock for a later retry;
+checkpoint or cleanup failures retain recovery evidence. All failures are synthetic.
 All journal and target contents are synthetic. Model-label fixtures verify opaque
 file preservation, not hardware support.
 
@@ -63,6 +68,13 @@ Use `__version__` as the software version source and record changes in
 legacy manifest identifier and backup naming. A tag/release must describe actual
 validation of its exact commit and distinguish hardware evidence from mocks. Public
 releases contain only audited source; never attach private data.
+
+Before a prerelease, follow the [manual preparation steps](publishing.md#manual-prerelease-preparation).
+Run the existing workflow on the exact main commit if its push run is unavailable:
+`gh workflow run tests.yml --ref main`. This executes the synthetic test matrix;
+it does not publish a release. Record the run's head SHA, event, per-job test counts
+and completed conclusions. A queued/running job is not a passing matrix, and a run
+for an earlier commit is not validation of a new candidate.
 
 Keep [compatibility](compatibility.md), [safety](safety.md), [recovery](troubleshooting.md)
 and [publication](publishing.md) aligned with actual behavior. Shared agent instructions
