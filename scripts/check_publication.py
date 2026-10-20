@@ -10,12 +10,12 @@ import subprocess
 import sys
 
 PUBLIC_PATHS = {
-    '.gitignore', 'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md',
+    '.gitignore', '.gitattributes', 'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md',
     'AGENTS.md', 'CHANGELOG.md', 'xteink_sd_migrate.py', 'disk_safety.py',
     '.github/workflows/tests.yml', '.github/ISSUE_TEMPLATE/bug_report.md',
     '.github/pull_request_template.md', '.githooks/pre-commit', '.githooks/pre-push',
     'docs/safety.md', 'docs/troubleshooting.md', 'docs/compatibility.md',
-    'docs/development.md', 'docs/publishing.md',
+    'docs/development.md', 'docs/publishing.md', 'docs/agent-development.md',
     'assets/readme/xteink-mark.svg', 'assets/readme/README.md',
     'scripts/check_publication.py', 'scripts/install_git_hooks.py',
     'tests/test_xteink_sd_migrate.py', 'tests/test_safety.py', 'tests/test_publication.py',
@@ -45,6 +45,9 @@ def git(root, *args):
 
 
 def allowed(path):
+    # Private guidance is forbidden at every depth, even after an allowlist mistake.
+    if PurePosixPath(path).name.casefold() == 'agents.override.md':
+        return False
     return path in PUBLIC_PATHS
 
 
@@ -121,8 +124,10 @@ def audit(root, mode, revisions=None):
     elif mode == 'staged':
         groups = [list(index_entries(root))]
     else:
+        if git(root, 'rev-parse', '--is-shallow-repository').strip() != b'false':
+            raise AuditError('History audit cannot complete with shallow or unknown Git history; no clean result.')
         commits = git(root, 'rev-list', *(revisions or ['--all', 'HEAD'])).decode().splitlines()
-        if not commits:
+        if not commits and mode != 'outgoing':
             raise AuditError('No reachable commits to audit.')
         groups = (tree_entries(root, commit) for commit in commits)
         # Author/committer addresses are public too; keep owner metadata private.
@@ -150,10 +155,18 @@ def main(argv=None):
     modes.add_argument('--worktree', action='store_true')
     modes.add_argument('--staged', action='store_true')
     modes.add_argument('--all-history', action='store_true')
+    modes.add_argument('--outgoing', metavar='BASE_REF', help='Audit HEAD commits not reachable from an explicit local base ref')
     modes.add_argument('--pre-push', action='store_true')
     args = parser.parse_args(argv)
     try:
         revisions = None
+        if args.outgoing:
+            def commit_oid(ref):
+                value = git(args.root, 'rev-parse', '--verify', '--end-of-options', ref + '^{commit}').decode().strip()
+                if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', value):
+                    raise AuditError('Cannot resolve the outgoing range; no clean result.')
+                return value
+            revisions = [commit_oid('HEAD'), '^' + commit_oid(args.outgoing)]
         if args.pre_push:
             revisions = []
             for line in sys.stdin:
@@ -165,7 +178,7 @@ def main(argv=None):
             if not revisions:  # Deleting refs sends no source content.
                 print('Publication audit PASS: no outgoing source.')
                 return 0
-        mode = 'worktree' if args.worktree else 'staged' if args.staged else 'history'
+        mode = 'worktree' if args.worktree else 'staged' if args.staged else 'outgoing' if args.outgoing else 'history'
         count, errors = audit(args.root, mode, revisions)
         if errors:
             for error in errors:
@@ -173,7 +186,10 @@ def main(argv=None):
             return 1
         print(f'Publication audit PASS: {count} public file revisions checked ({mode}).')
         return 0
-    except (AuditError, OSError, ValueError):
+    except AuditError as exc:
+        print('Publication audit could not complete: ' + str(exc), file=sys.stderr)
+        return 2
+    except (OSError, ValueError):
         print('Publication audit could not complete; private details withheld.', file=sys.stderr)
         return 2
 

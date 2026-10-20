@@ -201,7 +201,7 @@ No real card is formatted by tests or CI. Additional hardware reports are welcom
 | [Troubleshooting](docs/troubleshooting.md) | `diskutil info -plist diskN`, detection, macOS permissions, capacity failures and recovery |
 | [Contributing](CONTRIBUTING.md) · [Development](docs/development.md) | Local setup, tests, CI and project maintenance |
 | [Publication](docs/publishing.md) · [Security](SECURITY.md) | Private backups, index/history audits and vulnerability reports |
-| [Shared project instructions](AGENTS.md) · [Changelog](CHANGELOG.md) | Development boundaries and version history |
+| [Shared project instructions](AGENTS.md) · [Agent setup](docs/agent-development.md) · [Changelog](CHANGELOG.md) | Development boundaries and version history |
 
 For help, [open an issue](https://github.com/gh-slee/xteink-sd-migrator/issues/new/choose) with a minimal synthetic reproduction and sanitized errors. Exit codes: 0 success; 1 operational error; 2 invalid CLI options; 130 interruption.
 

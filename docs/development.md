@@ -6,7 +6,7 @@
 constant. `disk_safety.py` holds the fail-closed physical-storage/identity policy.
 Tests use the standard library. `scripts/` contains contributor-only publication
 helpers and is not imported by the migration runtime. No venv, pip, Node or Docker
-is required.
+is required. No separate lint, type-check or package-build command is configured.
 
 ```bash
 git clone https://github.com/gh-slee/xteink-sd-migrator.git
@@ -63,3 +63,17 @@ releases contain only audited source; never attach private data.
 Keep [compatibility](compatibility.md), [safety](safety.md), [recovery](troubleshooting.md)
 and [publication](publishing.md) aligned with actual behavior. Shared agent instructions
 live in [AGENTS.md](../AGENTS.md); personal session state stays private and ignored.
+
+## Agent setup and local-only maintenance
+
+Follow [agent development](agent-development.md) for native discovery, ignored private
+overrides, instruction-size budgets, worktrees and a copyable fresh-session probe.
+Public clones run without private guidance. Do not copy personal language preferences,
+private paths or session state into shared files. A setup task does not itself
+permit publication, releases, deployment or real-data migration.
+
+Preserve the observed branch/checkout and unrelated changes. Local setup patches may
+remain unstaged and uncommitted for review; do not manufacture a release/version bump
+or create a new public roadmap for instruction maintenance. Use the existing Issues
+tracker for substantive public tasks with explicit acceptance conditions. Record
+local verification privately and distinguish local checks from pushed CI results.

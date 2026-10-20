@@ -1,0 +1,8 @@
+# Git source exports must exclude private instructions and local state.
+AGENTS.override.md export-ignore
+**/AGENTS.override.md export-ignore
+codex-repository-setup.md export-ignore
+**/codex-repository-setup.md export-ignore
+xteink-x3-backup/** export-ignore
+work/** export-ignore
+private/** export-ignore

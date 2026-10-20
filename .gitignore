@@ -43,3 +43,6 @@ AGENTS.override.md
 .codex/
 .cursor/
 private/
+
+# Private one-time setup requests
+codex-repository-setup.md
