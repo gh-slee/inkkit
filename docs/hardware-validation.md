@@ -84,6 +84,69 @@ values; do not include hardware serials or disk/volume UUIDs. Use placeholders f
 names and paths and keep detailed evidence locally. If a failure cannot be explained
 without sensitive data, consult [SECURITY.md](../SECURITY.md) before posting.
 
+## X3-first v1.0.0 validation
+
+The initial stable hardware evidence target is **X3**, using the same reader and
+firmware before and after card replacement. X4, Classic, Pro and other compatible
+models remain within the model-independent implementation scope, with physical
+validation pending. An X4 report is welcome but is not required for an X3-scoped
+stable evidence claim. No new device purchase or model-specific code gate is needed.
+This plan does not mark the public X3 workflow validated in advance.
+
+### Prepare and record
+
+Record the exact source revision as well as `--version`: development main may still
+report the last beta version while containing unreleased fixes. The chosen revision
+must include the ZIP64 and root-dot safety fixes and have successful CI. The published
+beta.3 tag predates those fixes and is not the validation candidate for this plan.
+Keep all runtime helpers from the same checkout/source export. Do not upgrade source
+files or firmware midway through a migration or recovery job.
+
+Before any physical session, record firmware name/build, macOS/Python, card reader,
+source/target capacities and target contents/disposability. If no separate expendable
+target exists, stop at preparation; the original is never the target. Privately note
+representative books at their existing paths, fonts/settings, bookmarks/progress and
+history that can be checked after replacement. Unknown values remain unknown.
+
+### Observe in stages
+
+1. **Read-only discovery:** in a separately arranged physical session, identify the
+   original through a separate card reader with the X3 shut down. `--diagnose` does
+   not write/eject, but its private output must stay local. Stop on ambiguous media.
+2. **Backup:** if authorized for that session, `--backup-only` creates local private
+   backups and ejects the original. Confirm full verification, retain ZIP/manifest/
+   checksum and an off-device copy, then remove and preserve the original card.
+3. **Archive-only check:** `--verify-backup BACKUP.zip` checks the paired ZIP/manifest
+   with no disk query or write. Do not submit the files or their contents publicly.
+4. **Replacement preflight:** `--restore BACKUP.zip --dry-run` observes the empty
+   reader before the replacement is inserted and checks the target without erasing,
+   copying or ejecting. It does not guarantee post-format space or firmware support.
+5. **Physical migration:** proceed only in a separate authorized session with an
+   explicitly identified expendable replacement. Follow the normal restore workflow
+   and both erase confirmations. Record full tree/hash verification and safe eject;
+   stop on failure and preserve recovery evidence. Never bypass a guard.
+6. **X3 checks:** insert the replacement with the reader shut down, then verify
+   startup, representative books, applicable fonts/settings and saved reader state.
+   Use a normal shutdown/restart and check the state again. Keep the original until
+   all applicable checks pass. A CLI success alone does not pass this stage.
+7. **Report:** fill the hardware template using sanitized outcomes only. Record any
+   skipped features or failed stage. Mark resume not run unless an ordinary job
+   actually needed it; never create a physical interruption for this checklist.
+
+One complete report establishes only its X3/firmware/reader/card/filesystem
+combination. If it uses FAT32, exFAT remains physically unverified, and vice versa.
+Use additional voluntary reports to expand evidence; do not generalize from a
+single card to every capacity or Mac. A source/target size or filesystem that has
+not been observed must not be recorded as a pass.
+
+If the replacement is physically smaller, default preflight must refuse it even if
+the files appear to fit. An intentional smaller-target session must record that
+choice and use `--restore BACKUP.zip --dry-run --allow-smaller-target` for its
+read-only preflight. A later separately authorized restore needs the same explicit
+override; preflight does not authorize it. The override relaxes only raw capacity,
+not source protection, allocation overhead, FAT32 limits or post-format usable-space
+checks. Do not swap card roles just to pass a guard or erase a needed backup card.
+
 ## Review and stable release criteria
 
 Maintainers review a report for its exact software revision, firmware, card and
@@ -94,12 +157,12 @@ read-only/partial results labeled separately. A successful X3 report does not
 validate X4, other firmware or every capacity. Historical v1.6 evidence cannot stand
 in for validation of a public candidate.
 
-Before proposing `v0.1.0` stable:
+Before proposing `v1.0.0` stable:
 
 1. Obtain reviewed physical migration and reader-state evidence for the public
-   implementation on X3 and X4 if both remain within the stable hardware claim.
-   Keep Classic/Pro/other untested combinations visibly pending; do not describe
-   them as physically validated. Otherwise narrow the stable claim to the evidence.
+   implementation on X3, following the plan above. Limit the initial stable physical
+   evidence claim to the reviewed configuration. X4, Classic, Pro and other untested
+   combinations stay pending; implementation support is not physical validation.
 2. Resolve known data-loss, incorrect-target, integrity and recovery blockers.
    Record any untested recovery scenario as a limitation; physical fault injection
    is not a release requirement. Fixes that affect prior evidence require a fresh
@@ -107,8 +170,9 @@ Before proposing `v0.1.0` stable:
 3. Verify the exact release candidate has successful macOS/Python 3.9 and 3.12 CI,
    synthetic fault coverage, CLI/version checks and publication audits. Link the
    candidate SHA and run; earlier green runs do not validate a later candidate.
-4. Update compatibility, limitations, changelog and release notes to match reviewed
-   evidence. Follow the [manual publication review](publishing.md#manual-prerelease-preparation)
+4. Review the [v1 compatibility commitment](compatibility.md#v1-compatibility-commitment),
+   then update compatibility, limitations, changelog and release notes to match
+   evidence. Follow the [stable release review](publishing.md#manual-stable-release-preparation)
    and obtain separate approval for the exact stable tag, SHA, notes and assets.
 
 These are review criteria, not an automatic promotion rule. There is no release

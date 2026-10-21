@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Prepare an X3-first v1.0.0 acceptance plan, a v1 compatibility commitment and
+  manual stable-release gates. Keep X4/other shared-layout models in implementation
+  scope with physical evidence pending; no new hardware result or release.
 - Apply ZIP directory resource limits to the ZIP64 end record used by Python,
   including archives without legacy sentinel values. Reject inconsistent or
   misdirected ZIP64 metadata before central-directory parsing.

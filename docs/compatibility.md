@@ -36,6 +36,42 @@ Synthetic tests exercise hidden-data backup/restore with X3, X4, Classic, Pro an
 an invented future model label. They show that model labels do not gate byte copying;
 they do not execute firmware or establish a physical migration result.
 
+## Initial stable evidence scope
+
+The v1.0.0 readiness plan starts with [X3 acceptance](hardware-validation.md#x3-first-v100-validation).
+The physical evidence claim for the initial stable release will cover only a reviewed
+X3 configuration. X4, Classic, Pro and other shared-layout readers remain in the
+implementation scope, with physical results pending. No model filter is added.
+The historical v1.6/X3 report does not satisfy public-version acceptance; the matrix
+above stays unchanged until a new report is completed and reviewed.
+
+## V1 compatibility commitment
+
+This is the proposed contract for the first stable v1 release and its v1.x updates;
+the current software remains beta. Review it with the final release candidate.
+
+| Interface | V1 commitment |
+| --- | --- |
+| Entry point and dependencies | Keep `xteink_sd_migrate.py`, startup/`--version` reporting and a standard-library-only CLI |
+| Existing backups | Continue reading valid legacy `xteink-x3-migrate-v1` ZIP/manifest pairs, including internal v1.6 backups; retain the checksum sidecar for independent checks |
+| Backup placement and names | Keep the default `xteink-x3-backup/` beside the script and historical timestamped names; do not move, rename, rewrite or delete existing backups during an upgrade |
+| CLI | Keep documented flags and meanings, including read-only verify/preflight, destructive new restore and no-format journal-bound resume; document any compatible additions |
+| Exit status | Keep 0 success, 1 operational failure, 2 invalid CLI arguments and 130 interruption |
+| Reader data | Preserve opaque file bytes and paths subject to the documented macOS-service exclusions; no cross-model/firmware settings conversion or flashing |
+| Host requirements | Document supported macOS/Python requirements per release; the current baseline is macOS with `diskutil` and Python 3.9+, tested in CI on macOS/Python 3.9 and 3.12, not every macOS/Python combination |
+
+Safety fixes may reject malformed archives, ambiguous devices or unsafe layouts
+that an older version accepted; record such tightening in the changelog. V1 backup
+compatibility does not promise acceptance of corrupt or unsupported inputs. Changes
+that remove documented CLI behavior, legacy backup reading or the supported runtime
+baseline require a new major release, apart from documented safety restrictions.
+
+Recovery journals are private job state, not the portable backup format. Keep the
+ZIP, manifest, sidecars and exact tool revision together until a job finishes; do
+not upgrade mid-job. A future journal change must be versioned and either supported
+explicitly or rejected without erasing/rewriting the target. Never delete a pending
+journal to permit a new erase. No automatic conversion of private jobs is promised.
+
 ## Boundaries
 
 Use this tool to replace a card for a reader. It does not promise cross-model or
