@@ -39,6 +39,11 @@ identities/timestamps. Ctrl-C releases the per-backup lock for a later retry;
 checkpoint or cleanup failures retain recovery evidence. All failures are synthetic.
 All journal and target contents are synthetic. Model-label fixtures verify opaque
 file preservation, not hardware support.
+ZIP64 regressions use tiny archives and lowered resource limits to check the exact
+end record selected by the standard library, including non-sentinel legacy fields,
+misdirected locators, invalid metadata and maximum-length comments. Malformed
+root-dot file fixtures must fail before disk queries or erase. No large allocation
+or physical device is needed to exercise these boundaries.
 
 [Hardware acceptance](hardware-validation.md) is a separate evidence review. Adding
 a report or checklist does not authorize a real-card test; automated tests and CI

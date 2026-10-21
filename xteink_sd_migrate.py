@@ -657,7 +657,7 @@ def safe_member(name: str):
     if not isinstance(name, str) or not name or len(name) > 4096:
         return False
     p = PurePosixPath(name)
-    return (not name.startswith("/") and "\\" not in name
+    return (bool(p.parts) and not name.startswith("/") and "\\" not in name
             and all(component not in ("", ".", "..") and
                     not any(ord(c) < 32 or c in ':*?"<>|' for c in component) and
                     component == component.rstrip(" .") for component in p.parts)
@@ -718,7 +718,8 @@ def check_zip_directory_size(archive):
     with Path(archive).open("rb") as stream:
         stream.seek(0, os.SEEK_END)
         size = stream.tell()
-        stream.seek(max(0, size - 65557))
+        tail_start = max(0, size - 65557)
+        stream.seek(tail_start)
         tail = stream.read()
         offset = tail.rfind(b"PK\x05\x06")
         if offset < 0 or len(tail) - offset < 22:
@@ -727,21 +728,34 @@ def check_zip_directory_size(archive):
         entries, directory_bytes = record[4], record[5]
         if record[1] or record[2] or len(tail) - offset != 22 + record[7]:
             raise MigrationError("Split/trailing ZIP data is unsupported.")
-        if entries == 0xFFFF or directory_bytes == 0xFFFFFFFF:
-            # ZIP64 end record locator directly precedes the normal end record.
-            if offset < 20:
-                raise MigrationError("Missing ZIP64 directory locator.")
-            locator = struct.unpack_from("<4sLQL", tail, offset - 20)
-            if locator[0] != b"PK\x06\x07" or locator[1] != 0 or locator[3] != 1:
+        end_start = tail_start + offset
+        locator = None
+        if end_start >= 20:
+            stream.seek(end_start - 20)
+            candidate = struct.unpack("<4sLQL", stream.read(20))
+            if candidate[0] == b"PK\x06\x07":
+                locator = candidate
+        if locator is not None:
+            # Match the stdlib: a locator enables ZIP64 even without legacy
+            # sentinels, and the fixed end record is read adjacent to it. Never
+            # validate a different record selected only by the locator offset.
+            zip64_start = end_start - 20 - 56
+            if locator[1] != 0 or locator[3] != 1 or zip64_start < 0 or locator[2] != zip64_start:
                 raise MigrationError("Invalid ZIP64 directory locator.")
-            stream.seek(locator[2])
+            stream.seek(zip64_start)
             header = stream.read(56)
             if len(header) != 56:
                 raise MigrationError("Incomplete ZIP64 directory.")
             values = struct.unpack("<4sQ2H2L4Q", header)
-            if values[0] != b"PK\x06\x06" or values[4] or values[5]:
+            if (values[0] != b"PK\x06\x06" or values[1] != 44 or
+                    values[4] or values[5] or values[6] != values[7]):
                 raise MigrationError("Invalid ZIP64 directory.")
             entries, directory_bytes = values[7], values[8]
+        elif (record[3] == 0xFFFF or entries == 0xFFFF or
+              directory_bytes == 0xFFFFFFFF or record[6] == 0xFFFFFFFF):
+            raise MigrationError("Missing ZIP64 directory locator.")
+        elif record[3] != entries:
+            raise MigrationError("Split/inconsistent ZIP directory counts.")
         if entries > MAX_ENTRIES or directory_bytes > MAX_MANIFEST_BYTES:
             raise MigrationError("ZIP directory exceeds resource limits.")
 
