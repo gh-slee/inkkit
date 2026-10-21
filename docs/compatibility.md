@@ -60,8 +60,12 @@ for the model-neutral workflow. Newly formatted target volumes use the neutral
 
 ## Reporting a configuration
 
-Use the issue template with tool/macOS/Python/firmware versions, reader type,
-source/target raw capacities, filesystem policy and sanitized result. Never post a
-backup, books, credentials or private paths. State whether the result is read-only
-detection, synthetic testing or an actual completed migration. Hardware tests require
-an explicitly designated disposable target card in a separate supervised session.
+Use the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md)
+and [acceptance criteria](hardware-validation.md) for successful or partial results;
+use the bug template for failures. Include tool/macOS/Python/firmware versions,
+reader type, source/target raw capacities, filesystem policy and sanitized result.
+Never post a backup, books, credentials or private paths. Record read-only detection,
+synthetic testing, completed migration and device-side checks separately. Hardware
+tests require an explicitly designated disposable target card in a separate
+supervised session. A report changes this matrix only after maintainer review;
+pending entries stay pending until supported by actual evidence.

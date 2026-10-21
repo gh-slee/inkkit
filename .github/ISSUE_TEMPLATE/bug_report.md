@@ -1,7 +1,10 @@
 ---
-name: Bug or hardware compatibility report
+name: Bug report
 about: Report a failure using sanitized details only
 ---
+
+For a working configuration or partial hardware result, use the hardware validation
+report instead. Use this template for failures, including failed hardware migrations.
 
 - Tool version (`--version`):
 - macOS and Python versions:

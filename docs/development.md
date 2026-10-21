@@ -40,6 +40,10 @@ checkpoint or cleanup failures retain recovery evidence. All failures are synthe
 All journal and target contents are synthetic. Model-label fixtures verify opaque
 file preservation, not hardware support.
 
+[Hardware acceptance](hardware-validation.md) is a separate evidence review. Adding
+a report or checklist does not authorize a real-card test; automated tests and CI
+continue to use synthetic data only. Never inject faults on physical reader media.
+
 Publication tests create independent temporary Git repositories with invented text
 and credentials. They verify worktree/index/history audits, forced private staging,
 secret patterns, removed historical blobs and hook inputs. They never inspect a
