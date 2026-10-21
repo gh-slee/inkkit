@@ -220,13 +220,14 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 | Real hardware | One author-reported X3/Mac migration with internal v1.6; other physical combinations pending |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
-No real card is formatted by tests or CI. Additional hardware reports are welcome, with exact model, firmware, reader and capacities, using sanitized details. Automated success is not proof that a particular physical device has been migrated.
+No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
 
 ## Documentation
 
 | Guide | Read it for… |
 | --- | --- |
 | [Compatibility](docs/compatibility.md) | Device scope, firmware/layout assumptions and validation evidence |
+| [Hardware validation](docs/hardware-validation.md) | Sanitized reports, acceptance criteria and evidence needed for stable release review |
 | [Safety](docs/safety.md) | Erase guards, integrity checks and remaining limits |
 | [Troubleshooting](docs/troubleshooting.md) | `diskutil info -plist diskN`, detection, macOS permissions, capacity failures and recovery |
 | [Contributing](CONTRIBUTING.md) · [Development](docs/development.md) | Local setup, tests, CI and project maintenance |

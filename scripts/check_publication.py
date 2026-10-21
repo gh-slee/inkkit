@@ -13,6 +13,7 @@ PUBLIC_PATHS = {
     '.gitignore', '.gitattributes', 'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md',
     'AGENTS.md', 'CHANGELOG.md', 'xteink_sd_migrate.py', 'disk_safety.py', 'restore_recovery.py',
     '.github/workflows/tests.yml', '.github/ISSUE_TEMPLATE/bug_report.md',
+    '.github/ISSUE_TEMPLATE/hardware_report.md', 'docs/hardware-validation.md',
     '.github/pull_request_template.md', '.githooks/pre-commit', '.githooks/pre-push',
     'docs/safety.md', 'docs/troubleshooting.md', 'docs/compatibility.md',
     'docs/development.md', 'docs/publishing.md', 'docs/agent-development.md',
