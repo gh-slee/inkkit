@@ -222,6 +222,13 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 
 No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
 
+**v1.0.0 preparation:** the initial physical evidence target is [X3](docs/hardware-validation.md#x3-first-v100-validation).
+X4 and other compatible models retain the same file-level implementation support,
+with physical validation pending. A reviewed public-version X3 result, the
+[v1 compatibility commitment](docs/compatibility.md#v1-compatibility-commitment) and
+[final candidate checks](docs/publishing.md#manual-stable-release-preparation) are
+required before a stable release; no new physical result is claimed here.
+
 ## Documentation
 
 | Guide | Read it for… |

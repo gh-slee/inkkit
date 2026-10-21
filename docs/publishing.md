@@ -116,3 +116,37 @@ release must be marked prerelease and must not be promoted to stable implicitly.
 After publication, verify the tag resolves to the approved commit, release metadata
 and source file list match, and no private assets were attached. This is a manual
 maintenance procedure; no automatic release workflow is configured.
+
+## Manual stable release preparation
+
+Use the checks above plus the [hardware acceptance gates](hardware-validation.md#review-and-stable-release-criteria)
+and [v1 compatibility commitment](compatibility.md#v1-compatibility-commitment).
+The initial v1.0.0 physical evidence scope is X3; X4/other implementation-compatible
+readers remain explicitly unvalidated. Do not publish stable metadata in advance
+of reviewed evidence. A documentation merge does not complete hardware acceptance.
+
+1. Select an immutable candidate SHA that includes the reviewed safety fixes. A
+   separately approved `v1.0.0-rc.1` prerelease is an optional way to distribute it;
+   naming or preparing a candidate does not authorize a tag/release. Record both SHA
+   and software version because unreleased main may retain an earlier beta banner.
+2. Run synthetic tests, compilation, CLI/version checks, publication audits and an
+   isolated source-export smoke check on the candidate. Verify its exact successful
+   macOS/Python 3.9 and 3.12 CI run and actual per-job test counts. Keep evidence tied
+   to that SHA, not an earlier beta tag or feature branch.
+3. Review the sanitized X3 report against that candidate's runtime, firmware, card,
+   reader and filesystem. If later changes only update documentation/version,
+   record the hardware-tested SHA and confirm runtime changes are limited to the
+   version banner; do not claim the final SHA itself was physically tested. Changes
+   affecting migration/verification/recovery require relevant renewed validation.
+4. Resolve release blockers and reconcile README, compatibility matrix, security/
+   safety limitations, changelog and notes with actual evidence. Set the final
+   version constant to `1.0.0` in a reviewed change, test the final exact SHA again,
+   and confirm the source archive includes every runtime helper and no private data.
+5. Obtain separate approval for `v1.0.0`, the final SHA, notes and assets. Only then
+   create a stable release with prerelease disabled. Verify the remote tag SHA,
+   metadata and generated source archives afterwards. Do not retag an earlier beta
+   or silently promote a prerelease; no automatic release publisher is configured.
+
+Keep the original card and verified backup throughout acceptance. All automated
+checks remain synthetic; neither release preparation nor CI authorizes real-card
+operations or uploading private hardware evidence.

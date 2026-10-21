@@ -15,6 +15,7 @@ book titles, serial numbers, disk/volume UUIDs and all credentials/settings valu
 
 - Observation date:
 - Tool version (`--version`) and exact tag/commit:
+- Source snapshot stayed unchanged during the job (yes/no/unknown):
 - Any local source changes (yes/no; describe without private data):
 - macOS version, Mac architecture and Python version:
 - XTEINK model:
@@ -58,3 +59,5 @@ migration. Keep comparisons of private books/settings/progress local.
 
 This report covers only the configuration and revision above. It does not certify
 other devices or replace maintainer review of the compatibility matrix.
+The initial stable evidence target is X3; reports for X4/other compatible readers
+remain welcome. Never infer a second model or filesystem result from this report.
