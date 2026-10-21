@@ -6,6 +6,7 @@ import io
 import json
 import os
 import stat
+import struct
 import tempfile
 import unittest
 import zipfile
@@ -184,7 +185,7 @@ class SafetyTests(unittest.TestCase):
         with self.assertRaises(zipfile.BadZipFile): m.verify_archive_contents(self.archive, self.manifest)
 
     def test_manifest_unsafe_paths(self):
-        for name in ('../escape', '/escape', 'a/../b', 'a\\b', 'a//b', 'a/./b', 'C:evil', 'a\x00b', 'a.', 'a '):
+        for name in ('.', './', '../escape', '/escape', 'a/../b', 'a\\b', 'a//b', 'a/./b', 'C:evil', 'a\x00b', 'a.', 'a '):
             with self.subTest(name=name):
                 manifest = copy.deepcopy(self.manifest)
                 manifest['files'][0]['path'] = name
@@ -365,6 +366,92 @@ class SafetyTests(unittest.TestCase):
         with patch.object(zipfile, 'ZIP64_LIMIT', 1):
             self.write_zip()
         m.verify_archive_contents(self.archive, self.manifest)
+
+    def test_zip64_limits_apply_without_legacy_sentinels(self):
+        with patch.object(zipfile, 'ZIP64_LIMIT', 1):
+            self.write_zip()
+        data = bytearray(self.archive.read_bytes())
+        end = data.rfind(b'PK\x05\x06')
+        # The stdlib reads ZIP64 whenever a locator is present, even when the
+        # legacy counts/sizes do not contain their all-ones sentinel values.
+        struct.pack_into('<2HL', data, end + 8, 0, 0, 0)
+        self.archive.write_bytes(data)
+        for limit in ('MAX_ENTRIES', 'MAX_MANIFEST_BYTES'):
+            with self.subTest(limit=limit), patch.object(m, limit, 1):
+                with self.assertRaises(m.MigrationError):
+                    m.check_zip_directory_size(self.archive)
+
+    def test_zip64_limit_rejected_before_zipfile_parse(self):
+        with patch.object(zipfile, 'ZIP64_LIMIT', 1):
+            self.write_zip()
+        data = bytearray(self.archive.read_bytes())
+        end = data.rfind(b'PK\x05\x06')
+        struct.pack_into('<L', data, end + 12, 0)
+        self.archive.write_bytes(data)
+        with patch.object(m, 'MAX_MANIFEST_BYTES', 1), patch.object(zipfile, 'ZipFile') as parse:
+            with self.assertRaises(m.MigrationError):
+                m.verify_archive_contents(self.archive, self.manifest)
+            parse.assert_not_called()
+
+    def test_zip64_locator_cannot_select_a_different_end_record(self):
+        with patch.object(zipfile, 'ZIP64_LIMIT', 1):
+            self.write_zip()
+        data = bytearray(self.archive.read_bytes())
+        end = data.rfind(b'PK\x05\x06')
+        actual = end - 20 - 56
+        forged = bytearray(data[actual:actual + 56])
+        struct.pack_into('<3Q', forged, 24, 0, 0, 0)
+        data = forged + data
+        end += 56
+        # Point to the inserted benign record while stdlib reads the adjacent one.
+        struct.pack_into('<Q', data, end - 20 + 8, 0)
+        struct.pack_into('<2H', data, end + 8, 0xffff, 0xffff)
+        self.archive.write_bytes(data)
+        with zipfile.ZipFile(self.archive) as zf:
+            self.assertEqual(zf.read('.crosspoint/state.json'), b'{}')
+        with patch.object(m, 'MAX_ENTRIES', 1):
+            with self.assertRaises(m.MigrationError):
+                m.check_zip_directory_size(self.archive)
+
+    def test_zip64_maximum_comment_roundtrip(self):
+        with patch.object(zipfile, 'ZIP64_LIMIT', 1):
+            self.write_zip()
+            with zipfile.ZipFile(self.archive, 'a') as zf:
+                zf.comment = b'x' * 65535
+        data = self.archive.read_bytes()
+        self.assertEqual(data[data.rfind(b'PK\x05\x06') - 20:][:4], b'PK\x06\x07')
+        m.verify_archive_contents(self.archive, self.manifest)
+
+    def test_invalid_zip64_metadata_rejected_without_legacy_sentinels(self):
+        with patch.object(zipfile, 'ZIP64_LIMIT', 1):
+            self.write_zip()
+        valid = self.archive.read_bytes()
+        end = valid.rfind(b'PK\x05\x06')
+        start = end - 20 - 56
+        for position, fmt, value in ((end - 20 + 4, '<L', 1),
+                                      (end - 20 + 16, '<L', 2),
+                                      (start + 4, '<Q', 45),
+                                      (start + 16, '<L', 1),
+                                      (start + 24, '<Q', 3)):
+            with self.subTest(position=position):
+                data = bytearray(valid)
+                struct.pack_into(fmt, data, position, value)
+                self.archive.write_bytes(data)
+                with self.assertRaises(m.MigrationError):
+                    m.check_zip_directory_size(self.archive)
+
+    def test_root_dot_file_rejected_before_disk_query_or_erase(self):
+        self.manifest['files'][0]['path'] = '.'
+        self.manifest['directories'] = []
+        self.write_zip([('.', b'{}')])
+        with patch.object(m, 'external_disks', return_value=[self.disk]) as query, \
+             patch.object(safety, 'physical_disks', side_effect=lambda path, *a:
+                          {'disk9'} if Path(path) == self.mount else {'disk0'}), \
+             patch.object(m, 'invoke_status') as erase:
+            with self.assertRaises(m.MigrationError):
+                m.erase_target(self.disk, self.archive, self.manifest)
+            query.assert_not_called()
+            erase.assert_not_called()
 
     def test_same_reader_internal_removable_target(self):
         self.disk['info'].update(Internal=True, BusProtocol='Secure Digital')

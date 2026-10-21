@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Apply ZIP directory resource limits to the ZIP64 end record used by Python,
+  including archives without legacy sentinel values. Reject inconsistent or
+  misdirected ZIP64 metadata before central-directory parsing.
+- Reject root-dot member paths during manifest validation, before disk queries or
+  erase. Preserve ordinary ZIP, tool-created ZIP64 and legacy v1 backup support.
+- Add synthetic regressions for resource limits, malformed ZIP64 metadata,
+  maximum-length ZIP comments and pre-erase path rejection. No real-card testing.
+
 ## [0.1.0-beta.3](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3) — 2026-10-20
 
 - Exercise journal creation/write/fsync/atomic-replace/directory-sync failures,

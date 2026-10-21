@@ -22,6 +22,9 @@ volume UUID, raw capacity and filesystem, and records the active file before wri
 Atomic journal updates are fsynced before corresponding target writes. A per-backup
 local advisory lock serializes writing jobs; the lock inode is retained. Pending
 journals block a new erase. Neither sidecar changes the legacy v1 backup schema.
+Locks coordinate jobs using the same backup, not different backups or other disk
+utilities. Run only one migration/restore/recovery writer at a time and keep other
+disk tools closed; the CLI does not reserve physical media against other processes.
 
 `--check-restore` and `--resume ... --dry-run` inspect without writes or eject.
 Actual `--resume` is a separate no-format path with a matching journal and explicit
@@ -50,6 +53,13 @@ raise ENOSPC. Successful retries check every file again; they do not establish
 power-loss durability of any physical card or filesystem.
 
 Resource policy: at most 200,000 files/directories, 2 TiB declared expanded data, 128 MiB manifest/ZIP central directory, expansion ratio <=10,000. Size/count/path/checksum mismatches, duplicate JSON keys, duplicate/case/Unicode aliases, traversal, symlinks/special files, encryption and split archives are rejected. Large ZIP64 backups remain supported. These conservative limits may reject legitimate unusual archives; do not disable them for an untrusted archive.
+
+ZIP64 limits are checked against the fixed end record adjacent to its locator,
+matching the record Python parses even when legacy fields contain no sentinel.
+Misdirected locators, inconsistent/split metadata and unsupported extended end
+records are rejected before central-directory allocation. Tool-created ZIP64 and
+legacy v1 archives remain supported. Root-dot member paths are rejected before
+target selection; verification must not accept a file that resolves to the root.
 
 Source changes detected during scanning/reading abort backup. SHA-256 checks consistency, not original source health or authenticity. Protect both ZIP and manifest from tampering. Unix mode 600 does not encrypt files, and removable FAT filesystems may not enforce those permissions.
 
