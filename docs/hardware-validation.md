@@ -181,7 +181,9 @@ macOS/Python 3.9 and 3.12 CI is still required before release. This report is ev
 for the recorded configuration, not firmware certification, coverage of all reader
 features, or proof that a later SHA was physically tested. If subsequent edits only
 change documentation/version, compare runtime sources with the tested revision and
-retain both SHAs. Runtime behavior changes require relevant renewed validation.
+retain both SHAs. The v1.0.0 preparation changes only the version constant and
+module description in runtime sources; it does not physically retest a new SHA.
+Runtime behavior changes require relevant renewed validation.
 
 ## Review and stable release criteria
 
