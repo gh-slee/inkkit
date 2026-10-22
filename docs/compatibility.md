@@ -50,9 +50,9 @@ required for v1.0.0; their matrix entries remain pending until reviewed evidence
 
 ## V1 compatibility commitment
 
-The following compatibility commitment applies to the planned first stable v1
-release and its v1.x updates. The published software remains beta until a separately
-approved stable release; verify the final candidate against this commitment.
+The following compatibility commitment defines v1.0.0 and its v1.x updates.
+Publication of the stable tag and release requires separate approval and exact
+candidate checks; a source version change does not publish a release.
 
 | Interface | V1 commitment |
 | --- | --- |

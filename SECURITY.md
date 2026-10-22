@@ -2,7 +2,7 @@
 
 ## Scope and support
 
-This beta can permanently erase a selected physical disk. Safety fixes target the
+This tool can permanently erase a selected physical disk. Safety fixes target the
 latest code/release; historical branches have no separate maintenance commitment.
 See [the safety model](docs/safety.md) for fail-closed checks and remaining hotplug,
 reader-reporting and hardware limitations. Model support is not hardware certification.

@@ -5,7 +5,7 @@ Creates and verifies a timestamped ZIP before ejecting the source card,
 then formats a confirmed external target card as MBR/FAT32 or MBR/exFAT, restores all
 non-macOS service files, and verifies each restored file with SHA-256.
 No third-party packages required. Python 3.9+.
-Public beta based on the internal v1.6 implementation.
+Originally based on the internal v1.6 implementation.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import disk_safety
 import restore_recovery
 from pathlib import Path, PurePosixPath
 
-__version__ = "0.1.0-beta.3"
+__version__ = "1.0.0"
 BACKUP_DIR = Path(__file__).resolve().parent / "xteink-x3-backup"
 MAX_ENTRIES = 200_000
 MAX_BACKUP_BYTES = 2 * 1024**4

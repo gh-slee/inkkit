@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 1.0.0
+
+Release preparation; publication is tracked separately on the
+[releases page](https://github.com/gh-slee/xteink-sd-migrator/releases).
+
+- Prepare the first stable version with startup and `--version` reporting 1.0.0.
+  Keep the stable script filename, standard-library runtime, existing CLI behavior,
+  legacy v1 backup compatibility and private repo-local backup placement.
+- Retain verified backups, guarded target formatting/restoration, read-only backup
+  verification/preflight and journal-bound no-format recovery from the beta series.
+  Update version/security documentation without changing migration logic.
+
 - Record a reviewed X3 32 GB to 16 GB FAT32/MBR backup/restore result on the
   unreleased APFS-fix revision, including complete file/tree verification, safe
   eject and owner-confirmed reader acceptance. Document missing environment/build

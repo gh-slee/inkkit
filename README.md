@@ -15,7 +15,7 @@
   <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS CLI"></a>
   <a href="#tech-stack"><img src="https://img.shields.io/badge/Runtime_dependencies-None-208C8A?style=flat-square" alt="Standard library only"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-208C8A?style=flat-square" alt="MIT license"></a>
-  <a href="#project-status"><img src="https://img.shields.io/badge/Status-Beta-D3973F?style=flat-square" alt="Beta, limited hardware validation"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/Version-1.0.0-208C8A?style=flat-square" alt="Version 1.0.0 source; see release status"></a>
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 **XTEINK SD Migrator is an open-source macOS CLI for replacing the microSD card in a CrossInk-compatible XTEINK reader.** It copies ordinary and hidden files, preserves the reader’s directory layout, and verifies the backup and restored data with SHA-256. No installation, account, network connection, or third-party Python package is needed to run it.
 
-**Beta:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the unreleased APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
+**Hardware validation:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the unreleased APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
 
 > **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
 
@@ -49,13 +49,15 @@
 
 Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
 
-The commands below check out the published [v0.1.0-beta.3 prerelease](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3).
-You can also download its source ZIP or tar.gz from that release page and extract
-the entire source folder before running the script. Contributor setup is in
+The commands below select the `v1.0.0` tag. Confirm that tag is published on the
+[releases page](https://github.com/gh-slee/xteink-sd-migrator/releases) before using
+these commands; a prepared version constant in a branch is not a published release.
+You can also download the tagged source ZIP or tar.gz there and extract the entire
+source folder. Release preparation and contributor setup are in
 [Development](docs/development.md).
 
 ```bash
-git clone --branch v0.1.0-beta.3 https://github.com/gh-slee/xteink-sd-migrator.git
+git clone --branch v1.0.0 https://github.com/gh-slee/xteink-sd-migrator.git
 cd xteink-sd-migrator
 
 python3 xteink_sd_migrate.py --version
@@ -77,7 +79,7 @@ python3 xteink_sd_migrate.py
 
 Cancel with `q` at disk selection or Ctrl-C before formatting. Cancellation after formatting begins cannot undo deletion. A failed restore may leave an incomplete target; keep the original and verified backup and follow the [recovery guide](docs/troubleshooting.md).
 
-The beta only erases **confirmed writable removable USB/SD media with one mounted FAT32/exFAT volume, a readable volume UUID and capacity <=2 TiB**. Fixed HDDs/SSDs, internal non-removable disks, virtual disks, Time Machine, APFS and unknown, unmounted or multi-partition targets are blocked. Some legitimate readers may be rejected. A running reader’s USB mass-storage mode is not hardware-validated; use a separate SD reader. Do not bypass a rejection or blindly reformat another disk.
+The tool only erases **confirmed writable removable USB/SD media with one mounted FAT32/exFAT volume, a readable volume UUID and capacity <=2 TiB**. Fixed HDDs/SSDs, internal non-removable disks, virtual disks, Time Machine, APFS and unknown, unmounted or multi-partition targets are blocked. Some legitimate readers may be rejected. A running reader’s USB mass-storage mode is not hardware-validated; use a separate SD reader. Do not bypass a rejection or blindly reformat another disk.
 
 <details>
 <summary><strong>Restore an existing backup or choose a filesystem</strong></summary>
@@ -210,19 +212,24 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 
 ## Project status
 
-**Published prerelease: [v0.1.0-beta.3](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3) (2026-10-20).** `--version` and the startup banner report the checked-out software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases) describe the validation for each published snapshot; [CHANGELOG.md](CHANGELOG.md) records changes.
+**Source version: 1.0.0.** `--version` and the startup banner report the checked-out
+software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases)
+are the authority for published snapshots; a version change or PR merge does not
+publish a tag or release. The earlier [v0.1.0-beta.3 prerelease](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3)
+predates the subsequent archive-safety and APFS fixes. [CHANGELOG.md](CHANGELOG.md)
+records the v1.0.0 scope.
 
 | Area | Evidence / boundary |
 | --- | --- |
 | Migration behavior | Existing v1.6 behavior and legacy backup compatibility preserved |
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
-| Automated validation | [beta.3 CI](https://github.com/gh-slee/xteink-sd-migrator/actions/runs/39503033847): 153 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits |
+| Automated validation baseline | [Integrated safety/X3-report CI](https://github.com/gh-slee/xteink-sd-migrator/actions/runs/39836265788) on `f43b931`: 166 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits; final release CI must match the tagged SHA |
 | Real hardware | [X3 backup, restore/readback, safe eject and owner-confirmed reader acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on revision `505c1c5`; other physical combinations pending |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
 No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
 
-**v1.0.0 preparation:** full physical acceptance is required only for [X3](docs/hardware-validation.md#x3-first-v100-validation).
+**v1.0.0 scope:** full physical acceptance is required only for [X3](docs/hardware-validation.md#x3-first-v100-validation).
 The reviewed X3 result covers one configuration on the unreleased APFS-fix revision,
 not the published beta.3 tag or a future final release SHA. X4 and other compatible
 models retain file-level implementation support with physical validation pending;
