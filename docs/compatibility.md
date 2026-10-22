@@ -1,4 +1,4 @@
-# Device and firmware compatibility
+# InkKit device and firmware compatibility
 
 ## Model-independent migration
 
@@ -8,7 +8,7 @@ XTEINK models that use the same mounted SD layout and pass all disk-safety check
 The selection workflow recognizes `.crosspoint/`; it does not parse a device model
 or transform firmware-specific settings. Unknown hidden reader data is preserved.
 
-Upstream evidence, checked 2026-10-19:
+Upstream evidence, checked 2026-10-22:
 
 - [CrossInk installation](https://crossink.dev/installation.html) lists X3, X4,
   X4 Classic and X4 Pro among its supported devices.
@@ -17,10 +17,20 @@ Upstream evidence, checked 2026-10-19:
 - [CrossInk source](https://github.com/uxjulia/CrossInk) is the firmware project;
   it is independent of this migration utility.
 
-These are firmware/layout facts, not evidence that this utility has migrated every
-listed reader. CrossPoint or downstream firmware using the same layout may qualify;
+CrossInk also lists Seeed Studio Sticky. That non-XTEINK device is outside InkKit's
+current supported workflow. These are firmware/layout facts, not evidence that
+InkKit has migrated every listed reader. CrossPoint or downstream firmware using
+the same layout may qualify;
 firmware versions with different layouts require separate investigation. Stock firmware,
 non-XTEINK hardware and Linux/Windows hosts are outside the supported workflow.
+
+## Current capabilities and planned tools
+
+The matrix below describes the implemented SD backup/migration workflow. Saved
+Wi-Fi connection add/edit/remove and other settings management are planned; no
+settings-editing CLI or device/firmware validation is claimed for those features.
+The InkKit rename preserves the stable script entry point, legacy backup format,
+backup names/default directory and recovery journal format.
 
 ## Evidence matrix
 
@@ -100,7 +110,7 @@ for the model-neutral workflow. Newly formatted target volumes use the neutral
 
 ## Reporting a configuration
 
-Use the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md)
+Use the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md)
 and [acceptance criteria](hardware-validation.md) for successful or partial results;
 use the bug template for failures. Include tool/macOS/Python/firmware versions,
 reader type, source/target raw capacities, filesystem policy and sanitized result.

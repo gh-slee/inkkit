@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="assets/readme/xteink-mark.svg" width="84" height="84" alt="XTEINK SD Migrator project icon">
+  <img src="assets/readme/xteink-mark.svg" width="84" height="84" alt="InkKit project icon">
 </p>
 
-<h1 align="center">XTEINK SD Migrator</h1>
+<h1 align="center">InkKit</h1>
 
 <p align="center">
-  <strong>A new card. The same reading life.</strong><br>
-  Back up, migrate, and verify your CrossInk reader’s books, fonts, settings, and progress.
+  <strong>Tools for your CrossInk reader.</strong><br>
+  Verified SD backups and migration today. Wi-Fi and reader settings management planned.
 </p>
 
 <p align="center">
-  <a href="https://github.com/gh-slee/xteink-sd-migrator/actions/workflows/tests.yml"><img src="https://github.com/gh-slee/xteink-sd-migrator/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status on main"></a>
+  <a href="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml"><img src="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status on main"></a>
   <a href="#tech-stack"><img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.9 or newer"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS CLI"></a>
   <a href="#tech-stack"><img src="https://img.shields.io/badge/Runtime_dependencies-None-208C8A?style=flat-square" alt="Standard library only"></a>
@@ -26,13 +26,18 @@
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
-**XTEINK SD Migrator is an open-source macOS CLI for replacing the microSD card in a CrossInk-compatible XTEINK reader.** It copies ordinary and hidden files, preserves the reader’s directory layout, and verifies the backup and restored data with SHA-256. No installation, account, network connection, or third-party Python package is needed to run it.
+**InkKit is an open-source macOS toolkit for CrossInk-compatible XTEINK readers.** Its current CLI backs up, migrates and verifies microSD cards, preserving ordinary and hidden files, the reader’s directory layout and saved state with SHA-256 checks. No installation, account, network connection or third-party Python package is needed to run it.
 
-**Hardware validation:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the unreleased APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
+Formerly **XTEINK SD Migrator**. The repository is now `gh-slee/inkkit`; the stable
+`xteink_sd_migrate.py` entry point, existing backup names/format and repo-local backup
+directory remain compatible. The published `v1.0.0` source retains the original
+branding; the InkKit branding is in development source until a later release.
+
+**Hardware validation:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the recorded APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
 
 > **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
 
-## Features
+## Available now
 
 | | What you can do |
 | --- | --- |
@@ -45,20 +50,29 @@
 | ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
 | 🔒 **Keep backups local** | Store backups beside the script in a Git-ignored folder; publication hooks and CI add a separate source-only guard. |
 
+## Planned capabilities
+
+| Capability | Status |
+| --- | --- |
+| Add, edit and remove saved CrossInk Wi-Fi connections | Planned; no Wi-Fi editing command is implemented |
+| Manage additional reader settings | Planned; firmware-format review and implementation are future work |
+
+The commands below provide backup, migration and verification today. This rename
+does not add firmware flashing, device-side networking or a settings editor.
+
 ## Quick start
 
 Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
 
-The commands below select the `v1.0.0` tag. Confirm that tag is published on the
-[releases page](https://github.com/gh-slee/xteink-sd-migrator/releases) before using
-these commands; a prepared version constant in a branch is not a published release.
-You can also download the tagged source ZIP or tar.gz there and extract the entire
-source folder. Release preparation and contributor setup are in
-[Development](docs/development.md).
+The commands below select the published [v1.0.0 source](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0),
+released under the former XTEINK SD Migrator name. Its banner uses the original
+name; the commands and backup format are unchanged. You can also download the
+source ZIP or tar.gz there and extract the entire folder. For InkKit development
+source and contributor setup, see [Development](docs/development.md).
 
 ```bash
-git clone --branch v1.0.0 https://github.com/gh-slee/xteink-sd-migrator.git
-cd xteink-sd-migrator
+git clone --branch v1.0.0 https://github.com/gh-slee/inkkit.git
+cd inkkit
 
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --diagnose
@@ -122,13 +136,20 @@ resumed. Keep the original and backup; see the [recovery guide](docs/troubleshoo
 
 ## Supported devices
 
-[CrossInk’s supported-device list](https://crossink.dev/installation.html) includes **X3, X4, X4 Classic and X4 Pro**. Its [SD layout documentation](https://crossink.dev/data-cache.html) describes the shared `.crosspoint` directory used for reader data. This tool detects that layout and copies opaque file bytes; it does not inspect a model number or flash model-specific firmware.
+InkKit's current XTEINK device scope is **X3, X4, X4 Classic and X4 Pro running CrossInk**.
+[CrossInk’s supported-device list](https://crossink.dev/installation.html), checked
+2026-10-22, lists these models. Its [SD layout documentation](https://crossink.dev/data-cache.html)
+describes the shared `.crosspoint` directory. InkKit detects that layout and copies
+opaque file bytes; it does not inspect a model number or flash firmware.
+CrossInk also supports Seeed Studio Sticky; that non-XTEINK device is outside
+InkKit's current supported workflow.
 
 | Reader / environment | Migration scope | Hardware evidence |
 | --- | --- | --- |
-| XTEINK X3 running CrossInk | Supported file-level workflow | [Reviewed 32 GB to 16 GB FAT32 result](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on the unreleased APFS-fix revision |
+| XTEINK X3 running CrossInk | Supported file-level workflow | [Reviewed 32 GB to 16 GB FAT32 result](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on hardware-tested revision `505c1c5` |
 | XTEINK X4 running CrossInk | Supported file-level workflow | Physical migration pending |
-| XTEINK X4 Classic / X4 Pro running CrossInk | Supported file-level workflow | Physical migration pending |
+| XTEINK X4 Classic running CrossInk | Supported file-level workflow | Physical migration pending |
+| XTEINK X4 Pro running CrossInk | Supported file-level workflow | Physical migration pending |
 | Other XTEINK models supported by CrossInk | In scope when they expose the same mounted SD layout and pass every safety check | Validate the exact model, firmware, card and reader combination |
 | CrossPoint or downstream firmware with the same layout | Layout-compatible candidate | Firmware-specific validation pending |
 | Stock firmware, a different storage layout, Linux / Windows hosts | Outside the supported workflow | No support claim |
@@ -212,31 +233,31 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 
 ## Project status
 
-**Source version: 1.0.0.** `--version` and the startup banner report the checked-out
-software version. [Tagged releases](https://github.com/gh-slee/xteink-sd-migrator/releases)
-are the authority for published snapshots; a version change or PR merge does not
-publish a tag or release. The earlier [v0.1.0-beta.3 prerelease](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3)
-predates the subsequent archive-safety and APFS fixes. [CHANGELOG.md](CHANGELOG.md)
-records the v1.0.0 scope.
+**Published migration release: [v1.0.0](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0)**,
+originally released as XTEINK SD Migrator. InkKit development source keeps the same
+1.0.0 version constant while the rebrand is unreleased; startup/`--version` show the
+name of the checked-out source. The existing tag is unchanged. Wi-Fi and settings
+management remain planned. [CHANGELOG.md](CHANGELOG.md) separates unreleased changes
+from published snapshots.
 
 | Area | Evidence / boundary |
 | --- | --- |
 | Migration behavior | Existing v1.6 behavior and legacy backup compatibility preserved |
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
-| Automated validation baseline | [Integrated safety/X3-report CI](https://github.com/gh-slee/xteink-sd-migrator/actions/runs/39836265788) on `f43b931`: 166 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits; final release CI must match the tagged SHA |
+| Published release validation | [v1.0.0 exact-commit CI](https://github.com/gh-slee/inkkit/actions/runs/39847722957) on `ef927dc`: 166 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits; later development commits require their own checks |
 | Real hardware | [X3 backup, restore/readback, safe eject and owner-confirmed reader acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on revision `505c1c5`; other physical combinations pending |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
-No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
+No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
 
-**v1.0.0 scope:** full physical acceptance is required only for [X3](docs/hardware-validation.md#x3-first-v100-validation).
-The reviewed X3 result covers one configuration on the unreleased APFS-fix revision,
-not the published beta.3 tag or a future final release SHA. X4 and other compatible
-models retain file-level implementation support with physical validation pending;
-their hardware reports are welcome but do not block v1.0.0. The
+**Hardware evidence:** [X3 acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22)
+completed for one 32 GB to 16 GB FAT32/MBR configuration. The report records its
+hardware-tested revision and the metadata-only differences in the final v1.0.0
+source. X4 and other compatible models retain file-level support with physical
+validation pending; their reports were not required for v1.0.0. The
 [v1 compatibility commitment](docs/compatibility.md#v1-compatibility-commitment) and
-[final candidate checks](docs/publishing.md#manual-stable-release-preparation),
-including exact-candidate CI and separate publication approval, still apply.
+[release checks](docs/publishing.md#manual-stable-release-preparation) continue to
+apply to future versions. Planned settings features need their own validation.
 
 ## Documentation
 
@@ -250,7 +271,7 @@ including exact-candidate CI and separate publication approval, still apply.
 | [Publication](docs/publishing.md) · [Security](SECURITY.md) | Private backups, index/history audits and vulnerability reports |
 | [Shared project instructions](AGENTS.md) · [Agent setup](docs/agent-development.md) · [Changelog](CHANGELOG.md) | Development boundaries and version history |
 
-For help, [open an issue](https://github.com/gh-slee/xteink-sd-migrator/issues/new/choose) with a minimal synthetic reproduction and sanitized errors. Exit codes: 0 success; 1 operational error; 2 invalid CLI options; 130 interruption.
+For help, [open an issue](https://github.com/gh-slee/inkkit/issues/new/choose) with a minimal synthetic reproduction and sanitized errors. Exit codes: 0 success; 1 operational error; 2 invalid CLI options; 130 interruption.
 
 ## Development
 

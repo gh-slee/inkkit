@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""XTEINK / CrossInk microSD file-level migration for macOS.
+"""InkKit: XTEINK / CrossInk microSD file-level migration for macOS.
 
 Creates and verifies a timestamped ZIP before ejecting the source card,
 then formats a confirmed external target card as MBR/FAT32 or MBR/exFAT, restores all
@@ -1337,7 +1337,7 @@ def eject(disk_id: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verified CrossInk/CrossPoint XTEINK SD migration on macOS")
+    parser = argparse.ArgumentParser(description="InkKit: verified CrossInk/CrossPoint XTEINK SD migration on macOS")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--backup-only", action="store_true", help="Back up & verify source, then eject (no formatting)")
     group.add_argument("--restore", type=Path, metavar="BACKUP.zip", help="Restore an existing backup (after verification)")
@@ -1351,7 +1351,7 @@ def main():
         help="Target format (all MBR): auto [default; FAT32 if target <=32 GiB, exFAT otherwise], "
              "fat32, exfat, or source (preserve original)",
     )
-    parser.add_argument("--version", action="version", version=f"xteink-sd-migrator {__version__}")
+    parser.add_argument("--version", action="version", version=f"InkKit {__version__}")
     parser.add_argument("--allow-smaller-target", action="store_true",
                         help="Allow smaller physical card if file-level data fits (still checks usable space)")
     args = parser.parse_args()
@@ -1364,7 +1364,7 @@ def main():
     if sys.version_info < (3, 9):
         raise MigrationError("Python 3.9 or newer is required.")
     say("=" * 65)
-    say(f" XTEINK SD Migrator v{__version__} — macOS")
+    say(f" InkKit v{__version__} — macOS")
     say("=" * 65)
     if not (args.diagnose or args.verify_backup or args.check_restore or args.resume or args.dry_run):
         say("WARNING: Any target disk you confirm will be COMPLETELY ERASED.")

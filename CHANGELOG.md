@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+- Rename the project and repository to InkKit (`gh-slee/inkkit`). Update project
+  identity, CLI branding and repository links; preserve the published v1.0.0 tag,
+  stable `xteink_sd_migrate.py` entry point and existing backup/recovery formats.
+- List X3, X4, X4 Classic and X4 Pro individually, with only X3 physically validated.
+  Keep other compatible XTEINK models conditional on the shared layout and guards.
+  CrossInk firmware support for Seeed Studio Sticky is not an InkKit support claim.
+- Describe saved Wi-Fi connection add/edit/remove and additional reader settings as
+  planned capabilities, separate from the implemented SD backup/migration tools.
+
 ## 1.0.0
 
 Release preparation; publication is tracked separately on the
-[releases page](https://github.com/gh-slee/xteink-sd-migrator/releases).
+[releases page](https://github.com/gh-slee/inkkit/releases).
 
 - Prepare the first stable version with startup and `--version` reporting 1.0.0.
   Keep the stable script filename, standard-library runtime, existing CLI behavior,
@@ -38,7 +47,7 @@ Release preparation; publication is tracked separately on the
 - Add synthetic regressions for resource limits, malformed ZIP64 metadata,
   maximum-length ZIP comments and pre-erase path rejection. No real-card testing.
 
-## [0.1.0-beta.3](https://github.com/gh-slee/xteink-sd-migrator/releases/tag/v0.1.0-beta.3) — 2026-10-20
+## [0.1.0-beta.3](https://github.com/gh-slee/inkkit/releases/tag/v0.1.0-beta.3) — 2026-10-20
 
 - Exercise journal creation/write/fsync/atomic-replace/directory-sync failures,
   failed completion checkpoints, mid-write ENOSPC during restore/resume, target

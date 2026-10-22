@@ -83,6 +83,6 @@ Copy this into a new session opened at the repository root:
 
 File/permission checks cannot prove that another session followed the instructions.
 Report a fresh-session or worktree-copy check as pending until actually performed.
-Public tasks use the existing [GitHub Issues](https://github.com/gh-slee/xteink-sd-migrator/issues);
+Public tasks use the existing [GitHub Issues](https://github.com/gh-slee/inkkit/issues);
 private owner/session notes are not a public roadmap. See [contributing](../CONTRIBUTING.md)
 and [publication safeguards](publishing.md) before proposing publication.
