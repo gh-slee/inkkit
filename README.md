@@ -28,7 +28,7 @@
 
 **XTEINK SD Migrator is an open-source macOS CLI for replacing the microSD card in a CrossInk-compatible XTEINK reader.** It copies ordinary and hidden files, preserves the reader’s directory layout, and verifies the backup and restored data with SHA-256. No installation, account, network connection, or third-party Python package is needed to run it.
 
-**Beta:** the implementation is model-independent; physical migration evidence is one successful X3/Mac migration with its internal v1.6 predecessor. X4 and other compatible XTEINK models are in scope, with additional hardware validation pending. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
+**Beta:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the unreleased APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
 
 > **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
 
@@ -124,7 +124,7 @@ resumed. Keep the original and backup; see the [recovery guide](docs/troubleshoo
 
 | Reader / environment | Migration scope | Hardware evidence |
 | --- | --- | --- |
-| XTEINK X3 running CrossInk | Supported file-level workflow | One author-reported successful migration with internal v1.6 |
+| XTEINK X3 running CrossInk | Supported file-level workflow | [Reviewed 32 GB to 16 GB FAT32 result](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on the unreleased APFS-fix revision |
 | XTEINK X4 running CrossInk | Supported file-level workflow | Physical migration pending |
 | XTEINK X4 Classic / X4 Pro running CrossInk | Supported file-level workflow | Physical migration pending |
 | Other XTEINK models supported by CrossInk | In scope when they expose the same mounted SD layout and pass every safety check | Validate the exact model, firmware, card and reader combination |
@@ -217,17 +217,19 @@ No runtime dependencies, Docker service, web frontend, telemetry or AI service. 
 | Migration behavior | Existing v1.6 behavior and legacy backup compatibility preserved |
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
 | Automated validation | [beta.3 CI](https://github.com/gh-slee/xteink-sd-migrator/actions/runs/39503033847): 153 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits |
-| Real hardware | One author-reported X3/Mac migration with internal v1.6; other physical combinations pending |
+| Real hardware | [X3 backup, restore/readback, safe eject and owner-confirmed reader acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on revision `505c1c5`; other physical combinations pending |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
 No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
 
-**v1.0.0 preparation:** the initial physical evidence target is [X3](docs/hardware-validation.md#x3-first-v100-validation).
-X4 and other compatible models retain the same file-level implementation support,
-with physical validation pending. A reviewed public-version X3 result, the
+**v1.0.0 preparation:** full physical acceptance is required only for [X3](docs/hardware-validation.md#x3-first-v100-validation).
+The reviewed X3 result covers one configuration on the unreleased APFS-fix revision,
+not the published beta.3 tag or a future final release SHA. X4 and other compatible
+models retain file-level implementation support with physical validation pending;
+their hardware reports are welcome but do not block v1.0.0. The
 [v1 compatibility commitment](docs/compatibility.md#v1-compatibility-commitment) and
-[final candidate checks](docs/publishing.md#manual-stable-release-preparation) are
-required before a stable release; no new physical result is claimed here.
+[final candidate checks](docs/publishing.md#manual-stable-release-preparation),
+including exact-candidate CI and separate publication approval, still apply.
 
 ## Documentation
 

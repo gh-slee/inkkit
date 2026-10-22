@@ -2,9 +2,22 @@
 
 ## Unreleased
 
+- Record a reviewed X3 32 GB to 16 GB FAT32/MBR backup/restore result on the
+  unreleased APFS-fix revision, including complete file/tree verification, safe
+  eject and owner-confirmed reader acceptance. Document missing environment/build
+  details and untested combinations; do not attribute the result to the beta.3 tag.
+- Confirm X3-only full physical acceptance for v1.0.0. X4 and other compatible
+  models retain implementation support with physical validation pending and do not
+  block the initial stable release. Clarify the planned v1 compatibility commitment.
+
+- Resolve APFS backing storage on internal non-removable Apple Fabric whole disks
+  when macOS reports an unknown physical label. Require matching APFS store and
+  hardware evidence; keep ambiguous/virtual storage and unsafe targets blocked.
+  Add synthetic backup/erase-protection regressions and clarify storage-error text.
 - Prepare an X3-first v1.0.0 acceptance plan, a v1 compatibility commitment and
   manual stable-release gates. Keep X4/other shared-layout models in implementation
-  scope with physical evidence pending; no new hardware result or release.
+  scope with physical evidence pending. This planning change itself added no
+  hardware result or release; the later reviewed X3 result is recorded above.
 - Apply ZIP directory resource limits to the ZIP64 end record used by Python,
   including archives without legacy sentinel values. Reject inconsistent or
   misdirected ZIP64 metadata before central-directory parsing.

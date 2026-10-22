@@ -26,7 +26,7 @@ non-XTEINK hardware and Linux/Windows hosts are outside the supported workflow.
 
 | Device | File-level scope | Physical migration evidence |
 | --- | --- | --- |
-| X3 / CrossInk | Supported | One author-reported successful X3/Mac migration with internal v1.6 |
+| X3 / CrossInk | Supported | [Reviewed 2026-10-22 report](hardware-validation.md#reviewed-x3-result-2026-10-22): 32 GB to 16 GB, FAT32/MBR; unreleased APFS-fix revision |
 | X4 / CrossInk | Supported | Pending |
 | X4 Classic / CrossInk | Supported | Pending |
 | X4 Pro / CrossInk | Supported | Pending |
@@ -42,13 +42,17 @@ The v1.0.0 readiness plan starts with [X3 acceptance](hardware-validation.md#x3-
 The physical evidence claim for the initial stable release will cover only a reviewed
 X3 configuration. X4, Classic, Pro and other shared-layout readers remain in the
 implementation scope, with physical results pending. No model filter is added.
-The historical v1.6/X3 report does not satisfy public-version acceptance; the matrix
-above stays unchanged until a new report is completed and reviewed.
+The [reviewed X3 report](hardware-validation.md#reviewed-x3-result-2026-10-22)
+provides migration and owner-confirmed reader evidence for the recorded unreleased
+revision. It does not validate the beta.3 tag, a later runtime change, or an exact
+firmware build that was not recorded. X4 and other models' physical reports are not
+required for v1.0.0; their matrix entries remain pending until reviewed evidence exists.
 
 ## V1 compatibility commitment
 
-This is the proposed contract for the first stable v1 release and its v1.x updates;
-the current software remains beta. Review it with the final release candidate.
+The following compatibility commitment applies to the planned first stable v1
+release and its v1.x updates. The published software remains beta until a separately
+approved stable release; verify the final candidate against this commitment.
 
 | Interface | V1 commitment |
 | --- | --- |

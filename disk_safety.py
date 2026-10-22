@@ -1,8 +1,32 @@
-"""Fail-closed macOS erase policy. All queries are injected for synthetic tests."""
+"""Fail-closed macOS storage policy. All queries are injected for synthetic tests."""
 import re
 from pathlib import Path
 
 MAX_CARD_BYTES = 2 * 1024**4  # Conservative beta ceiling, not hardware certification.
+
+
+def confirmed_apfs_store(info, disk):
+    """Confirm a whole disk already named by APFS PhysicalStores topology.
+
+    Some internal Apple Fabric SSDs report Unknown despite being the physical
+    store. This narrow fallback is not a removable-target eligibility rule.
+    """
+    kind = str(info.get('VirtualOrPhysical', '')).lower()
+    protocol = str(info.get('BusProtocol') or info.get('Protocol') or '').lower()
+    if (kind == 'virtual' or info.get('Virtual') is True or
+            any(term in protocol for term in ('disk image', 'diskimage', 'file-backed')) or
+            info.get('WholeDisk') is False or info.get('DeviceIdentifier', disk) != disk):
+        return False
+    if kind == 'physical':
+        return True
+    removable = info.get('Removable')
+    fixed = (removable is None or removable is False or
+             isinstance(removable, str) and removable.lower() in ('fixed', 'false', 'no', '0'))
+    return (kind in ('', 'unknown') and info.get('DeviceIdentifier') == disk and
+            info.get('WholeDisk') is True and info.get('Internal') is True and
+            info.get('RemovableMedia') is False and protocol == 'apple fabric' and
+            fixed and
+            (info.get('Virtual') is None or info.get('Virtual') is False))
 
 
 def physical_disks(path, query, error):
@@ -16,7 +40,7 @@ def physical_disks(path, query, error):
     info = query('info', str(path))
     identifier = info.get('ParentWholeDisk') or info.get('DeviceIdentifier')
     if not isinstance(identifier, str) or not re.fullmatch(r'disk\d+(?:s\d+)*', identifier):
-        raise error('Cannot resolve a protected location to physical storage; refusing erase.')
+        raise error('Cannot resolve a protected location to physical storage; refusing disk writes.')
     whole = re.match(r'disk\d+', identifier).group()  # diskN, excluding partition suffixes
     whole_info = query('info', whole)
     if str(whole_info.get('VirtualOrPhysical', '')).lower() == 'physical':
@@ -29,14 +53,14 @@ def physical_disks(path, query, error):
             for store in stores:
                 name = store.get('DeviceIdentifier', '')
                 if not re.fullmatch(r'disk\d+s\d+', name):
-                    raise error('Unrecognized APFS physical store; refusing erase.')
+                    raise error('Unrecognized APFS physical store; refusing disk writes.')
                 disk = re.match(r'disk\d+', name).group()
-                if str(query('info', disk).get('VirtualOrPhysical', '')).lower() != 'physical':
-                    raise error('Unconfirmed APFS physical store; refusing erase.')
+                if not confirmed_apfs_store(query('info', disk), disk):
+                    raise error('Unconfirmed APFS physical store; refusing disk writes.')
                 result.add(disk)
             if result:
                 return result
-    raise error('Physical storage identity is unavailable for a protected location; refusing erase.')
+    raise error('Physical storage identity is unavailable for a protected location; refusing disk writes.')
 
 
 def hardware_identity(disk):

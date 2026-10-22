@@ -1,10 +1,11 @@
 # Hardware acceptance and reports
 
 The [compatibility matrix](compatibility.md#evidence-matrix) separates file-level
-scope from physical evidence. Current hardware evidence is an author-reported X3/Mac
-migration with the internal v1.6 predecessor. This guide and its report template add
-no new hardware result. Public beta.3 and X4/other combinations remain unvalidated
-until actual reports are reviewed.
+scope from physical evidence. The [reviewed X3 result](#reviewed-x3-result-2026-10-22)
+records a maintainer-run backup and restore on an unreleased APFS-fix revision,
+followed by owner-confirmed reader acceptance. It supplements the historical
+internal v1.6 report. The beta.3 tag predates this fix and was not the tested
+revision. X4 and other model combinations remain physically unvalidated.
 
 ## Scope and consent
 
@@ -89,9 +90,10 @@ without sensitive data, consult [SECURITY.md](../SECURITY.md) before posting.
 The initial stable hardware evidence target is **X3**, using the same reader and
 firmware before and after card replacement. X4, Classic, Pro and other compatible
 models remain within the model-independent implementation scope, with physical
-validation pending. An X4 report is welcome but is not required for an X3-scoped
-stable evidence claim. No new device purchase or model-specific code gate is needed.
-This plan does not mark the public X3 workflow validated in advance.
+validation pending. **Only X3 full physical acceptance is required for v1.0.0.**
+X4 and other models' reports are welcome but do not block that release; no additional
+device purchase or model-specific code gate is required. The result below is scoped
+to its recorded configuration, not every supported device or a future candidate.
 
 ### Prepare and record
 
@@ -146,6 +148,40 @@ read-only preflight. A later separately authorized restore needs the same explic
 override; preflight does not authorize it. The override relaxes only raw capacity,
 not source protection, allocation overhead, FAT32 limits or post-format usable-space
 checks. Do not swap card roles just to pass a guard or erase a needed backup card.
+
+## Reviewed X3 result (2026-10-22)
+
+This sanitized report was reviewed from the maintainer's Terminal output and their
+subsequent reader-use confirmation. The development agent did not access private
+archives or operate the physical cards. Automated tests and CI remain synthetic.
+
+| Configuration | Observed value or limitation |
+| --- | --- |
+| Tool | `0.1.0-beta.3` banner; exact tested revision `505c1c5a9d2d421a1ca2bac9789a4c1dd1309769` (unreleased APFS fix, not the beta.3 tag) |
+| Device / firmware | XTEINK X3 / CrossInk; owner reported latest, exact installed firmware build not recorded |
+| Host / card reader | macOS, Python 3, separate USB SD reader; exact OS/Python versions and reader make/model not recorded |
+| Cards | Marketed 32 GB source (29.7 GiB reported) to expendable 16 GB target (14.6 GiB reported); rounded sizes, not exact byte capacities |
+| Filesystem / options | FAT32 source; `auto` selected FAT32/MBR target; explicit `--allow-smaller-target` |
+| Backup | Backup-only creation and complete ZIP/file verification passed; 227 files, 37 directories, 148.4 MiB; original safely ejected |
+| Target preflight | Read-only preflight passed identity, source/protected-storage, capacity and filesystem checks |
+| Restore / post-format checks | Format and restore passed; 14.5 GiB available versus 425.0 MiB estimated including overhead/reserve |
+| Target readback / eject | 227 SHA-256 matches, 37 directories verified; `MIGRATION SUCCESSFUL` and safe eject completed |
+| Reader acceptance | Owner replied fully working to the startup, books, applicable fonts/settings, saved state and normal restart checklist; aggregate confirmation, no separate per-item logs or direct agent observation |
+| Not exercised / not recorded | exFAT, X4/other models, real-card interruption/resume; independent off-device backup copy not confirmed |
+
+An initial backup attempt stopped before archive creation because the host's APFS
+physical store reported an unknown label. The tested fix accepts only the narrowly
+confirmed internal Apple Fabric store; target eligibility remains unchanged. An
+earlier target preflight rejected source-like contents without writing. After the
+owner separately prepared the explicitly expendable replacement, normal guarded
+preflight and restore completed with both erase confirmations. No guard was removed.
+
+The hardware-tested revision has 166 passing local synthetic tests; exact-candidate
+macOS/Python 3.9 and 3.12 CI is still required before release. This report is evidence
+for the recorded configuration, not firmware certification, coverage of all reader
+features, or proof that a later SHA was physically tested. If subsequent edits only
+change documentation/version, compare runtime sources with the tested revision and
+retain both SHAs. Runtime behavior changes require relevant renewed validation.
 
 ## Review and stable release criteria
 
