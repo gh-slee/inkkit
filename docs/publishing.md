@@ -121,9 +121,12 @@ maintenance procedure; no automatic release workflow is configured.
 
 Use the checks above plus the [hardware acceptance gates](hardware-validation.md#review-and-stable-release-criteria)
 and [v1 compatibility commitment](compatibility.md#v1-compatibility-commitment).
-The initial v1.0.0 physical evidence scope is X3; X4/other implementation-compatible
-readers remain explicitly unvalidated. Do not publish stable metadata in advance
-of reviewed evidence. A documentation merge does not complete hardware acceptance.
+Only X3 full physical acceptance is required for v1.0.0; X4/other
+implementation-compatible readers remain explicitly unvalidated and do not block
+that release. The [reviewed X3 result](hardware-validation.md#reviewed-x3-result-2026-10-22)
+is tied to its recorded revision, not automatically to the final candidate. Do not
+publish stable metadata in advance of reviewed evidence. A documentation merge
+alone does not complete hardware acceptance.
 
 1. Select an immutable candidate SHA that includes the reviewed safety fixes. A
    separately approved `v1.0.0-rc.1` prerelease is an optional way to distribute it;
