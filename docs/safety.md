@@ -6,6 +6,14 @@ Read-only discovery deliberately accommodates more readers than destructive oper
 
 The only `eraseDisk` call is in `erase_target`. It reloads and hashes the ZIP, validates the complete manifest and archive, checks raw/allocation capacity and FAT32 limits, resolves the physical backing of protected paths and compares the confirmed snapshot again immediately before invoking diskutil. Protected paths include the ZIP and manifest, program and safety module, current checkout/working directory, home and system root. APFS paths resolve through container physical stores. Unresolvable protected storage blocks erase. Paths are resolved through their actual mount and diskutil topology, including symlinks, rather than by matching `/Volumes` strings.
 
+Some internal Apple Fabric SSDs report `VirtualOrPhysical=Unknown`. APFS storage
+resolution accepts that case only when the container names the store partition and
+the queried whole disk has the matching identifier, `WholeDisk=True`, `Internal=True`,
+`RemovableMedia=False` and `BusProtocol=Apple Fabric`, with no contradictory virtual
+or removable evidence. Every store must be confirmed. This identifies protected
+host storage and checks that backups are off the source; it does not make the
+internal SSD an eligible erase target or accept unknown external media generally.
+
 Snapshots include whole-device attributes, partition UUID and attributes, mount path and `st_dev`. They reduce hotplug risk but cannot eliminate the interval between a query and a diskutil action. Some cards expose no stable hardware serial. Cloned UUIDs and a device swapped with identical reported properties cannot always be distinguished. Keep all other external storage disconnected and never swap devices during confirmation, formatting or restore. The target mount must resolve back to the selected physical disk. After format, hardware attributes, MBR, filesystem, mount identity and usable space are checked before writing. Restore checks the opened directory handle against the captured mount identity before any write.
 
 Restore validates archives again and uses open directory descriptors with no-follow and exclusive file creation, so path symlinks cannot redirect writes and an old mount path does not become a new host destination if media disappears. Nested mounts are blocked. Interrupted restores leave the target incomplete; they do not consume or modify the backup. Backups are not deleted after success.

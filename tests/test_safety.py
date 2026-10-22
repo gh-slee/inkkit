@@ -324,6 +324,104 @@ class SafetyTests(unittest.TestCase):
             return {'DeviceIdentifier':'disk3s1','ParentWholeDisk':'disk3'}
         self.assertEqual(safety.physical_disks(self.archive, query, m.MigrationError), {'disk0'})
 
+    def apfs_store_query(self, stores):
+        def query(*args):
+            if args == ('apfs', 'list'):
+                return {'Containers': [{'ContainerReference': 'disk3', 'PhysicalStores': [
+                    {'DeviceIdentifier': disk + 's2'} for disk in stores]}]}
+            if args == ('info', 'disk3'):
+                return {'VirtualOrPhysical': 'Virtual'}
+            if len(args) == 2 and args[0] == 'info' and args[1] in stores:
+                return stores[args[1]]
+            return {'DeviceIdentifier': 'disk3s1', 'ParentWholeDisk': 'disk3'}
+        return query
+
+    def internal_fabric_store(self, disk='disk0'):
+        return {'DeviceIdentifier': disk, 'WholeDisk': True, 'Internal': True,
+                'RemovableMedia': False, 'BusProtocol': 'Apple Fabric',
+                'VirtualOrPhysical': 'Unknown'}
+
+    def test_internal_fabric_apfs_store_with_unknown_label(self):
+        for label in ('Unknown', ''):
+            for removable in (None, False, 'Fixed', 'false'):
+                with self.subTest(label=label, removable=removable):
+                    info = self.internal_fabric_store()
+                    info.update(VirtualOrPhysical=label, Removable=removable)
+                    query = self.apfs_store_query({'disk0': info})
+                    self.assertEqual(safety.physical_disks(self.archive, query, m.MigrationError), {'disk0'})
+        disk = copy.deepcopy(self.disk)
+        disk['info'].update(self.internal_fabric_store('disk9'))
+        with self.assertRaises(m.MigrationError):
+            safety.target_identity(disk, m.MigrationError)
+
+    def test_internal_fabric_requires_apfs_store_relationship(self):
+        info = self.internal_fabric_store()
+        def query(*args):
+            if args == ('apfs', 'list'):
+                return {'Containers': []}
+            return info
+        with self.assertRaises(m.MigrationError):
+            safety.physical_disks(self.archive, query, m.MigrationError)
+
+    def test_internal_fabric_apfs_store_incomplete_or_virtual_rejected(self):
+        changes = [dict(WholeDisk=False), dict(WholeDisk=None), dict(Internal=False),
+                   dict(Internal=None), dict(RemovableMedia=True), dict(RemovableMedia=None),
+                   dict(Removable=True), dict(Removable='unexpected'),
+                   dict(BusProtocol='USB'), dict(BusProtocol='Disk Image'),
+                   dict(Virtual=True), dict(Virtual='false'),
+                   dict(VirtualOrPhysical='Physical', Virtual=True),
+                   dict(VirtualOrPhysical='Physical', BusProtocol='Disk Image'),
+                   dict(VirtualOrPhysical='Virtual'), dict(DeviceIdentifier='disk99')]
+        for change in changes:
+            with self.subTest(change=change):
+                store = dict(self.internal_fabric_store(), **change)
+                with self.assertRaises(m.MigrationError):
+                    safety.physical_disks(self.archive, self.apfs_store_query({'disk0': store}),
+                                          m.MigrationError)
+
+    def test_all_apfs_stores_must_be_confirmed(self):
+        stores = {'disk0': self.internal_fabric_store(),
+                  'disk6': {'VirtualOrPhysical': 'Physical'}}
+        query = self.apfs_store_query(stores)
+        self.assertEqual(safety.physical_disks(self.archive, query, m.MigrationError),
+                         {'disk0', 'disk6'})
+        stores['disk6'] = {'VirtualOrPhysical': 'Unknown'}
+        with self.assertRaises(m.MigrationError):
+            safety.physical_disks(self.archive, query, m.MigrationError)
+
+    def test_backup_on_internal_fabric_apfs_store_roundtrip(self):
+        source = self.root / 'synthetic-source'
+        source.mkdir()
+        (source / 'invented.txt').write_bytes(b'synthetic bytes only')
+        backup = self.root / 'new-private-backups'
+        query = self.apfs_store_query({'disk0': self.internal_fabric_store()})
+        with patch.object(m, 'BACKUP_DIR', backup), patch.object(m, 'diskutil_plist', side_effect=query):
+            archive, manifest = m.make_backup(source, {
+                'id': 'disk8', 'name': 'Synthetic SD', 'size': 1024**3,
+                'info': {'WholeDisk': True}})
+        self.assertEqual(m.load_backup(archive)[1], manifest)
+        self.assertTrue(archive.is_file())
+
+    def test_backup_on_source_apfs_store_still_rejected_before_creation(self):
+        source = self.root / 'synthetic-source'
+        source.mkdir()
+        (source / 'invented.txt').write_bytes(b'synthetic bytes only')
+        backup = self.root / 'absent-backups'
+        query = self.apfs_store_query({'disk8': self.internal_fabric_store('disk8')})
+        with patch.object(m, 'BACKUP_DIR', backup), patch.object(m, 'diskutil_plist', side_effect=query):
+            with self.assertRaisesRegex(m.MigrationError, 'Backup storage is on the source disk'):
+                m.make_backup(source, {'id': 'disk8', 'name': 'Synthetic SD', 'size': 1024**3,
+                                       'info': {'WholeDisk': True}})
+        self.assertFalse(backup.exists())
+
+    def test_internal_fabric_apfs_storage_still_protected_from_erase(self):
+        query = self.apfs_store_query({'disk9': self.internal_fabric_store('disk9')})
+        with patch.object(m, 'external_disks', return_value=[self.disk]), \
+             patch.object(m, 'diskutil_plist', side_effect=query), patch.object(m, 'invoke_status') as erase:
+            with self.assertRaisesRegex(m.MigrationError, 'Target contains the backup'):
+                m.erase_target(self.disk, self.archive, self.manifest)
+            erase.assert_not_called()
+
     def test_physical_resolution_unknown_fails_closed(self):
         with self.assertRaises(m.MigrationError):
             safety.physical_disks(self.archive, lambda *a: {}, m.MigrationError)

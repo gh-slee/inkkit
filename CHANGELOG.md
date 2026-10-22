@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve APFS backing storage on internal non-removable Apple Fabric whole disks
+  when macOS reports an unknown physical label. Require matching APFS store and
+  hardware evidence; keep ambiguous/virtual storage and unsafe targets blocked.
+  Add synthetic backup/erase-protection regressions and clarify storage-error text.
 - Prepare an X3-first v1.0.0 acceptance plan, a v1 compatibility commitment and
   manual stable-release gates. Keep X4/other shared-layout models in implementation
   scope with physical evidence pending; no new hardware result or release.

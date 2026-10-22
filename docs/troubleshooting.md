@@ -10,6 +10,15 @@ macOS may need Files and Folders/Removable Volumes access for Terminal or the ap
 
 ## Backup or restore failure
 
+An `Unconfirmed APFS physical store` error during backup scanning means the tool
+cannot resolve the host backup location safely; it is not an erase operation. It
+stops before creating backup files. Current code handles the narrow internal Apple
+Fabric `Unknown` case described in the [storage policy](safety.md), using APFS store
+topology plus whole-disk hardware attributes. Preserve the source and existing
+backups; do not remove the storage guard or assume every `Unknown` disk is physical.
+Other incomplete/virtual store configurations still stop. Share only sanitized
+identity flags and bus types when reporting this failure, not full disk plists.
+
 Stop, leave the original card intact and preserve the ZIP, matching `.manifest.json` and `.zip.sha256`. They normally live in `xteink-x3-backup/` beside the script. A `.zip.partial` is not a verified backup and is removed on handled failure; abrupt process termination may leave it behind. A failure while publishing the manifest/checksum can leave an orphan ZIP: never call it verified or erase the source based on that ZIP alone.
 
 Missing/invalid manifest or checksum mismatch: recover the paired files from a trusted copy, or make another backup from the original. Do not edit hashes to silence a failure. `shasum -a 256 -c EXAMPLE.zip.sha256` provides a separate checksum check from inside the backup directory.
