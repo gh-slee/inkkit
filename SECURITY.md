@@ -22,7 +22,7 @@ A tracked file or a deleted historical blob can still be public. See
 
 ## Reporting a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/gh-slee/xteink-sd-migrator/security/advisories/new)
+Use [GitHub private vulnerability reporting](https://github.com/gh-slee/inkkit/security/advisories/new)
 for disk-safety bypasses, unsafe archive extraction or potential credential exposure.
 If that feature is unavailable, contact the maintainer through the GitHub profile to
 arrange a private channel before sharing sensitive details. Do not post private data

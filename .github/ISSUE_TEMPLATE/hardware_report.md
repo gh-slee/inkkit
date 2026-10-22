@@ -3,7 +3,7 @@ name: Hardware validation report
 about: Share a working or partial configuration using sanitized text only
 ---
 
-Read the [acceptance criteria](https://github.com/gh-slee/xteink-sd-migrator/blob/main/docs/hardware-validation.md).
+Read the [acceptance criteria](https://github.com/gh-slee/inkkit/blob/main/docs/hardware-validation.md).
 Report observations you already have. Do not erase a card or interrupt a physical
 job to complete this form. Use the bug report template for failures.
 

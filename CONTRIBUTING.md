@@ -50,7 +50,7 @@ check content, not owner consent; confirm the exact publication scope separately
 Additional public files require a reviewed addition to the publication allowlist.
 Keep `scripts/check_publication.py`, its tests and affected docs aligned. Pattern
 checks do not replace manual inspection. Report real hardware evidence separately
-from synthetic tests. Use the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md)
+from synthetic tests. Use the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md)
 with the [acceptance criteria](docs/hardware-validation.md) for working or partial
 configurations, and the bug template for failures. Never submit private raw evidence.
 

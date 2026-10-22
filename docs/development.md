@@ -2,6 +2,10 @@
 
 ## Layout and setup
 
+InkKit is the project name; `xteink_sd_migrate.py` remains the stable migration entry
+point. Wi-Fi connection editing and other settings tools are planned. This rebrand
+does not introduce a new executable, package dependency or firmware-data editor.
+
 `xteink_sd_migrate.py` is the stable CLI and contains the single `__version__`
 constant. `disk_safety.py` holds the fail-closed physical-storage/identity policy.
 `restore_recovery.py` manages private local restore journals and per-backup locks.
@@ -10,8 +14,8 @@ helpers and is not imported by the migration runtime. No venv, pip, Node or Dock
 is required. No separate lint, type-check or package-build command is configured.
 
 ```bash
-git clone https://github.com/gh-slee/xteink-sd-migrator.git
-cd xteink-sd-migrator
+git clone https://github.com/gh-slee/inkkit.git
+cd inkkit
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
 python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests

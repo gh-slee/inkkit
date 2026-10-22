@@ -23,7 +23,7 @@ write errors to test recovery. Recovery fault coverage belongs in synthetic test
 
 ## Record the configuration
 
-Use the [hardware report template](https://github.com/gh-slee/xteink-sd-migrator/issues/new?template=hardware_report.md)
+Use the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md)
 for working or partial configurations and the bug template for failures. Record:
 
 - Date, tool `--version`, exact tag or commit, and whether source was modified.
