@@ -21,6 +21,10 @@ PUBLIC_PATHS = {
     'scripts/check_publication.py', 'scripts/install_git_hooks.py',
     'tests/test_xteink_sd_migrate.py', 'tests/test_safety.py', 'tests/test_publication.py',
     'tests/test_recovery.py',
+    'inkkit_config.py', 'inkkit_helper.py', 'macos/InkKitApp.swift', 'macos/Info.plist',
+    'scripts/build_macos_preview.py', 'tests/test_config.py', 'tests/test_helper.py',
+    'tests/test_macos_build.py', 'PRODUCT.md', 'DESIGN.md',
+    'docs/macos-preview.md', 'docs/config-architecture.md',
 }
 MAX_BYTES = 2 * 1024**2
 SECRET_PATTERNS = (

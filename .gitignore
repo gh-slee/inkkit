@@ -38,6 +38,10 @@ venv/
 .coverage
 htmlcov/
 work/
+*.app/
+*.dmg
+.build/
+.impeccable/
 
 # Private contributor/agent preferences
 AGENTS.override.md

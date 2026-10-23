@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add a local SwiftUI developer preview with a bundled Python helper, twelve
+  non-credential settings, change review, verified original-file backups and
+  restore. Restrict all configuration IO to helper-created synthetic temporary
+  workspaces; real-card support and Wi-Fi/OPDS credential editing remain pending.
+- Add strict configuration/IPC validation, identity/hash rechecks, private backups,
+  recovery records, fault regressions, native typechecking and an explicit-input
+  local app builder. Keep migration runtime and release tags unchanged. The local
+  app is ad-hoc signed, not notarized or approved for public distribution.
 - Rename the project and repository to InkKit (`gh-slee/inkkit`). Update project
   identity, CLI branding and repository links; preserve the published v1.0.0 tag,
   stable `xteink_sd_migrate.py` entry point and existing backup/recovery formats.

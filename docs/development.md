@@ -3,22 +3,24 @@
 ## Layout and setup
 
 InkKit is the project name; `xteink_sd_migrate.py` remains the stable migration entry
-point. Wi-Fi connection editing and other settings tools are planned. This rebrand
-does not introduce a new executable, package dependency or firmware-data editor.
+point. Wi-Fi connection editing and real-card settings tools are planned. A local
+SwiftUI developer preview edits only its own synthetic workspaces; see
+[macOS preview](macos-preview.md) and [configuration architecture](config-architecture.md).
 
 `xteink_sd_migrate.py` is the stable CLI and contains the single `__version__`
 constant. `disk_safety.py` holds the fail-closed physical-storage/identity policy.
 `restore_recovery.py` manages private local restore journals and per-backup locks.
 Tests use the standard library. `scripts/` contains contributor-only publication
-helpers and is not imported by the migration runtime. No venv, pip, Node or Docker
-is required. No separate lint, type-check or package-build command is configured.
+and preview-build helpers and is not imported by the migration runtime. No venv, pip, Node or Docker
+is required for the migration CLI. Native preview development additionally needs
+Swift tools and, for bundling, a local python.org CPython 3.12 framework.
 
 ```bash
 git clone https://github.com/gh-slee/inkkit.git
 cd inkkit
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py scripts tests
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --help
 ```
@@ -72,7 +74,9 @@ The macOS matrix keeps Python 3.9 and 3.12 support. Actions are pinned to full c
 IDs, checkout credentials are not persisted, permissions are read-only, full history
 is available for audits, and each job has a timeout. The workflow runs publication
 worktree/index/history checks, synthetic tests, compilation and CLI smoke checks.
-There are no backup uploads or test-artifact uploads. Badge status is tied to `main`.
+The Python 3.12 job also typechecks the native SwiftUI source. CI does not package,
+sign, notarize or publish an app. There are no backup uploads or test-artifact
+uploads. Badge status is tied to `main`.
 
 ## Versions and documentation
 

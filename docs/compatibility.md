@@ -27,8 +27,11 @@ non-XTEINK hardware and Linux/Windows hosts are outside the supported workflow.
 ## Current capabilities and planned tools
 
 The matrix below describes the implemented SD backup/migration workflow. Saved
-Wi-Fi connection add/edit/remove and other settings management are planned; no
+Wi-Fi connection add/edit/remove and real-card settings management are planned; no
 settings-editing CLI or device/firmware validation is claimed for those features.
+The [native developer preview](macos-preview.md) edits only helper-created
+synthetic workspaces, using a narrow CrossInk v1.6.1 schema. It is not evidence of
+settings support or physical acceptance on any reader model.
 The InkKit rename preserves the stable script entry point, legacy backup format,
 backup names/default directory and recovery journal format.
 
