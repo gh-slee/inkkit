@@ -9,7 +9,7 @@ reader-reporting and hardware limitations. Model support is not hardware certifi
 
 ## Private data
 
-The migration tool runs locally and makes no network requests. Backups may contain
+The migration CLI and configuration app run locally and make no network requests. Backups may contain
 Wi-Fi/OPDS/synchronization credentials, personal reading history and copyrighted books.
 ZIPs and manifests are not encrypted. Private file permissions are not encryption and
 may not be enforced by FAT/exFAT. Protect the host, backups and an off-device copy.
@@ -19,6 +19,18 @@ issues, pull requests or CI artifacts. Local backups remain Git-ignored. Publica
 hooks and index/history allowlists are additional checks, not complete secret detection.
 A tracked file or a deleted historical blob can still be public. See
 [publication safeguards](docs/publishing.md).
+
+## Configuration development build
+
+Config backups are private original-file snapshots on the Mac under Application
+Support/InkKit, separate from CLI ZIPs. They are not encrypted. Existing passwords
+are hidden/preserved. New passwords use explicit per-write plaintext handoff to
+firmware, which must load and successfully resave the store; boot is not a guarantee.
+Rewrites/restores containing plaintext need consent too. Protect the SD card and
+all historical backups. MAC-dependent firmware obfuscation is not encryption.
+The app has no formatter, network login, decryption or arbitrary-file operation.
+It is an ad-hoc local development build with no new physical settings acceptance,
+Developer ID/notarization or public app distribution. See [architecture](docs/config-architecture.md).
 
 ## Reporting a vulnerability
 

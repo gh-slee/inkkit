@@ -72,7 +72,7 @@ These are maintenance checks, not part of the reader's migration prompts. The CL
 does not run Git or publish anything. See [SECURITY.md](../SECURITY.md) if data was
 exposed: removing the latest copy does not remove historical blobs or downloaded copies.
 
-## Source archives and unsupported packaging
+## Source archives and local preview packaging
 
 `.gitattributes` marks root/nested private overrides, setup requests, backup and
 private/work directories and recovery sidecars at every depth `export-ignore`.
@@ -80,8 +80,12 @@ Git source archives include tracked content only; these rules add a second bound
 accidentally tracked. Index/history guards must still reject such a repository;
 archive exclusion does not remediate a historical disclosure.
 
-This project has no wheel/package, Docker image, frontend build or automatic release
-publisher. Do not add one under a local instruction-setup task. Arbitrary recursive
+This project has no wheel/package, Docker image or automatic release publisher.
+The [local macOS preview builder](macos-preview.md) copies named public inputs and
+selected standard-library runtime files only; its ad-hoc-signed output is not a
+public release. Native build directories, apps and disk images remain ignored and
+are not approved source paths. Do not add a publisher under an instruction-setup
+task. Arbitrary recursive
 ZIP commands, screenshots, logs and attachments do not honor Git export rules; keep
 private guidance and data out of them explicitly. Supported source exports must use
 reviewed Git content, never a whole private checkout. Privacy regression tests use

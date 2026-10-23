@@ -29,10 +29,15 @@ jobs:
           python scripts/check_publication.py --worktree
           python scripts/check_publication.py --staged
           python scripts/check_publication.py --all-history
+      - name: Check configuration documentation matches the implemented schema
+        run: python scripts/check_configuration_docs.py
       - name: Synthetic unit tests (no real disk mutations)
         run: python -m unittest discover -s tests -v -b
       - name: Compile and CLI smoke checks
         run: |
-          python -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
+          python -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py scripts tests
           python xteink_sd_migrate.py --version
           python xteink_sd_migrate.py --help
+      - name: Typecheck native developer preview (no signing or real cards)
+        if: matrix.python == '3.12'
+        run: xcrun swiftc -swift-version 5 -parse-as-library -typecheck -target "$(uname -m)-apple-macosx14.0" -module-cache-path work/swift-module-cache macos/InkKitApp.swift

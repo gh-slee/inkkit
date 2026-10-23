@@ -2,7 +2,9 @@
 
 InkKit is a macOS, Python 3.9+, standard-library toolkit for CrossInk-compatible
 XTEINK readers. Its implemented CLI provides file-level microSD backup/migration;
-Wi-Fi connection editing and additional settings management are planned, not shipped.
+Development source includes a native current-card configuration app and synthetic
+demos. Its six-store CrossInk v1.6.1 profile has pending hardware acceptance; it is
+not a signed/notarized public release. See docs/configuration-reference.md.
 X3, X4, X4 Classic and X4 Pro share the opaque-file workflow; physical validation
 is separate from implementation scope. Only X3 has reviewed physical acceptance.
 
@@ -24,17 +26,21 @@ is separate from implementation scope. Only X3 has reviewed physical acceptance.
 - Stage named reviewed files. Run publication worktree/index/history checks before
   a push; never bypass guards, force-push or auto-merge. Respect the maintainer's
   explicit publication scope; roadmap or issue text is not authorization.
+- Keep the README generated configuration block and reference synchronized with
+  schema changes: run scripts/check_configuration_docs.py --write, then its check.
 - Keep implemented behavior distinct from upstream firmware support and actual
   hardware validation. Update affected docs and report only checks that were run.
-- No lint, type-check or package-build command is configured; do not invent one.
-  CI exercises synthetic tests, compilation, CLI smoke checks and privacy audits.
+- CI exercises synthetic tests, compilation, CLI smoke checks, source-publication
+  audits and native Swift typechecking. The local preview builder is documented in
+  docs/macos-preview.md; it must not read or copy the entire checkout or site-packages.
 
 ## Verified development commands
 
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py scripts tests
+python3 scripts/check_configuration_docs.py
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged
 python3 scripts/check_publication.py --all-history

@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Tools for your CrossInk reader.</strong><br>
-  Verified SD backups and migration today. Wi-Fi and reader settings management planned.
+  Verified SD backups and migration. Native CrossInk settings app in development.
 </p>
 
 <p align="center">
@@ -50,15 +50,24 @@ branding; the InkKit branding is in development source until a later release.
 | ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
 | 🔒 **Keep backups local** | Store backups beside the script in a Git-ignored folder; publication hooks and CI add a separate source-only guard. |
 
-## Planned capabilities
+## Native settings app (development)
 
-| Capability | Status |
-| --- | --- |
-| Add, edit and remove saved CrossInk Wi-Fi connections | Planned; no Wi-Fi editing command is implemented |
-| Manage additional reader settings | Planned; firmware-format review and implementation are future work |
+<!-- configuration-summary:start -->
+Development source includes a native macOS configuration app for **CrossInk v1.6.1**.
+It opens an explicitly selected current SD card and supports **148 main-setting controls**,
+plus up to **8 Wi-Fi networks, 8 OPDS servers, reading-sync preferences, 24 TTF profiles
+and the global dictionary selection**. Model-specific controls are disabled: X3 121, X4 112, X4 Classic 122, X4 Pro 132 editable main controls in a fresh profile. Older tilt schemas require firmware migration first.
 
-The commands below provide backup, migration and verification today. This rename
-does not add firmware flashing, device-side networking or a settings editor.
+Review, private Mac-side original-file backups, verified apply, guarded restore and safe eject
+are implemented. New or retained plaintext passwords require explicit consent for each write.
+The app is a **development build with synthetic tests, pending real-card settings acceptance**.
+Only the separate X3 migration workflow has physical acceptance evidence.
+There is no signed/notarized app download; v1.0.0 remains the migration CLI release.
+
+See the [configuration reference](docs/configuration-reference.md) for every control and limitation,
+and [build/use instructions](docs/macos-preview.md). The app does not format cards, flash firmware,
+execute sync/network operations or install font/dictionary assets.
+<!-- configuration-summary:end -->
 
 ## Quick start
 
@@ -223,21 +232,25 @@ Other hidden data, including `.crosspoint/`, `.fonts/` and unfamiliar reader dir
 | Layer | Technology |
 | --- | --- |
 | Interface | Direct Python 3.9+ CLI; no package installation |
+| Local app preview | SwiftUI, bundled CPython 3.12 helper; explicit current-card sessions and synthetic demos |
 | Disk discovery / formatting | macOS `diskutil` property lists and a guarded erase entry point |
 | Backup and integrity | Standard-library `zipfile`, JSON, `hashlib` SHA-256 |
 | Restore safety | Directory descriptors, no-follow paths, exclusive file creation, disk/mount checks |
 | Verification | `unittest`, temporary synthetic files and mocked disk commands |
 | Contributor privacy | Standard-library publication guard, local Git hooks, GitHub Actions |
 
-No runtime dependencies, Docker service, web frontend, telemetry or AI service. The project icon is original SVG artwork; [asset provenance](assets/readme/README.md).
+The CLI has no third-party runtime dependencies. The optional local app bundles its
+runtime. Neither workflow uses Docker, a web frontend, telemetry or an AI service.
+The project icon is original SVG artwork; [asset provenance](assets/readme/README.md).
 
 ## Project status
 
 **Published migration release: [v1.0.0](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0)**,
 originally released as XTEINK SD Migrator. InkKit development source keeps the same
 1.0.0 version constant while the rebrand is unreleased; startup/`--version` show the
-name of the checked-out source. The existing tag is unchanged. Wi-Fi and settings
-management remain planned. [CHANGELOG.md](CHANGELOG.md) separates unreleased changes
+name of the checked-out source. The existing tag is unchanged. The native configuration app is unreleased
+development source, with physical settings acceptance pending.
+[CHANGELOG.md](CHANGELOG.md) separates unreleased changes
 from published snapshots.
 
 | Area | Evidence / boundary |
