@@ -24,16 +24,18 @@ the same layout may qualify;
 firmware versions with different layouts require separate investigation. Stock firmware,
 non-XTEINK hardware and Linux/Windows hosts are outside the supported workflow.
 
-## Current capabilities and planned tools
+## Configuration app in development
 
-The matrix below describes the implemented SD backup/migration workflow. Saved
-Wi-Fi connection add/edit/remove and real-card settings management are planned; no
-settings-editing CLI or device/firmware validation is claimed for those features.
-The [native developer preview](macos-preview.md) edits only helper-created
-synthetic workspaces, using a narrow CrossInk v1.6.1 schema. It is not evidence of
-settings support or physical acceptance on any reader model.
-The InkKit rename preserves the stable script entry point, legacy backup format,
-backup names/default directory and recovery journal format.
+The [native app](macos-preview.md) implements current-card editing for CrossInk
+v1.6.1 on explicitly selected X3, X4, X4 Classic and X4 Pro profiles. See the
+[complete generated reference](configuration-reference.md). Expected capabilities
+filter controls; neither model nor firmware is auto-detected. Only removable
+single-partition FAT32/exFAT cards meeting identity/host-backup guards are opened.
+CrossPoint and other firmware versions retain the opaque migration workflow but
+are not configuration-editor profiles. Configuration writes have synthetic tests
+and no physical acceptance on any model; old X3 migration evidence is separate.
+The stable script, legacy backups, names/default directory and recovery journals
+are unchanged. No signed/notarized Mac app release is available.
 
 ## Evidence matrix
 

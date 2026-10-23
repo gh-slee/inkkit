@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local, ad-hoc-signed synthetic-only SwiftUI preview. Never publish it.
+"""Build a local, ad-hoc-signed SwiftUI configuration preview. Never publish it.
 
 Uses the executing python.org CPython 3.12 framework. Copies selected standard
 library source and system-linked extensions only, never site-packages or a checkout.
@@ -21,7 +21,8 @@ import sys
 import sysconfig
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_INPUTS = ('inkkit_config.py', 'inkkit_helper.py')
+CORE_INPUTS = ('inkkit_config.py', 'inkkit_helper.py', 'inkkit_schema.py', 'inkkit_codec.py',
+               'crossink_profile.py', 'inkkit_volume.py', 'disk_safety.py')
 BUILD_INPUTS = CORE_INPUTS + ('macos/InkKitApp.swift', 'macos/Info.plist',
                              'xteink_sd_migrate.py', 'LICENSE', 'scripts/build_macos_preview.py')
 
@@ -153,7 +154,7 @@ def build(output):
         str(ROOT / 'macos/InkKitApp.swift'), '-o', str(binary_dir / 'InkKit'))
     hashes = {relative: hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() for relative in BUILD_INPUTS}
     metadata = dict(format='inkkit-preview-build-v1', software_version=version, preview=True,
-                    real_card_access=False, runtime=runtime, inputs=hashes)
+                    real_card_access=True, runtime=runtime, inputs=hashes)
     (resources / 'BuildInfo.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
     run('/usr/bin/codesign', '--force', '--sign', '-', str(app))
     run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(app))

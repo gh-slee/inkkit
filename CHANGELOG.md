@@ -2,22 +2,25 @@
 
 ## Unreleased
 
-- Add a local SwiftUI developer preview with a bundled Python helper, twelve
-  non-credential settings, change review, verified original-file backups and
-  restore. Restrict all configuration IO to helper-created synthetic temporary
-  workspaces; real-card support and Wi-Fi/OPDS credential editing remain pending.
-- Add strict configuration/IPC validation, identity/hash rechecks, private backups,
-  recovery records, fault regressions, native typechecking and an explicit-input
-  local app builder. Keep migration runtime and release tags unchanged. The local
-  app is ad-hoc signed, not notarized or approved for public distribution.
+- Add a native SwiftUI configuration development app with 148 model-aware main
+  controls, Wi-Fi/OPDS CRUD, reading sync, 24 TTF profiles and global dictionary
+  selection, pinned to CrossInk v1.6.1. Explicit current-card sessions use removable
+  volume checks, private Mac backups, reviewed/verified apply, guarded exact restore
+  and safe eject; synthetic demos remain available. Physical settings acceptance
+  is pending for all devices, separate from existing X3 migration validation.
+- Preserve opaque passwords; require fresh explicit plaintext-handoff consent for
+  every write/restore containing plaintext. Preserve legacy sync server semantics,
+  unknown fields and missing defaults; enforce model capabilities and persisted IDs.
+- Generate a complete field/storage reference and README summary from the schema;
+  CI rejects documentation drift. Add synthetic field/store/fault/privacy regressions
+  and mocked disk-session tests. Keep migration runtime and release tags unchanged.
+  The local app is ad-hoc signed, not notarized or approved for public distribution.
 - Rename the project and repository to InkKit (`gh-slee/inkkit`). Update project
   identity, CLI branding and repository links; preserve the published v1.0.0 tag,
   stable `xteink_sd_migrate.py` entry point and existing backup/recovery formats.
 - List X3, X4, X4 Classic and X4 Pro individually, with only X3 physically validated.
   Keep other compatible XTEINK models conditional on the shared layout and guards.
   CrossInk firmware support for Seeed Studio Sticky is not an InkKit support claim.
-- Describe saved Wi-Fi connection add/edit/remove and additional reader settings as
-  planned capabilities, separate from the implemented SD backup/migration tools.
 
 ## 1.0.0
 

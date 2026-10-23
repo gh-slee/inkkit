@@ -25,6 +25,9 @@ PUBLIC_PATHS = {
     'scripts/build_macos_preview.py', 'tests/test_config.py', 'tests/test_helper.py',
     'tests/test_macos_build.py', 'PRODUCT.md', 'DESIGN.md',
     'docs/macos-preview.md', 'docs/config-architecture.md',
+    'crossink_profile.py', 'inkkit_schema.py', 'inkkit_codec.py', 'inkkit_volume.py',
+    'tests/test_config_stores.py', 'tests/test_config_volume.py',
+    'scripts/check_configuration_docs.py', 'docs/configuration-reference.md',
 }
 MAX_BYTES = 2 * 1024**2
 SECRET_PATTERNS = (

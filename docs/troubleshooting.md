@@ -113,3 +113,22 @@ X3 is not a required model. X4 and other compatible CrossInk XTEINK models use t
 same file-level workflow; see [compatibility](compatibility.md). Legacy `xteink-x3`
 backup names identify the historical archive format, not a device restriction.
 Use an external SD reader; a running device's USB transfer mode is unverified.
+
+## Native configuration build
+
+- Select the mounted SD root, then confirm the actual model and CrossInk v1.6.1.
+  Permission/identity/layout rejections are fail-closed. Reconnect/reopen; do not
+  bypass by reformatting or changing the migration erase guard.
+- Dirty drafts need Review/Apply or Discard before changing categories/reloading.
+  Add network/server/profile before filling a new collection entry. Paired button
+  maps and unique swipe actions may need multiple draft changes in one review.
+- Existing firmware `.tmp`/`.bak`, legacy schemas or invalid saved types require
+  firmware recovery/migration first. Preserve evidence and a full backup.
+- After apply/restore failure, stop and review private Mac-side Backups. External
+  later edits can intentionally block restore. Do not erase or delete records to
+  force it. See [transaction limitations](config-architecture.md).
+- Password fields always look empty. Blank keeps the old value; Clear removes it.
+  New or retained plaintext requires the review checkbox on every write. It remains
+  until the reader loads and successfully resaves that store; boot alone may not.
+- These workflows are development features, pending physical settings acceptance.
+  See [build/use and packaging limits](macos-preview.md).

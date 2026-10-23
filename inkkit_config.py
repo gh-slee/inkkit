@@ -1,12 +1,15 @@
-"""CrossInk configuration foundation. Writes are restricted to synthetic workspaces.
+"""CrossInk configuration transactions for explicit card sessions or synthetic demos.
 
-No device discovery, real-card adapter, formatter or credential editor is exposed.
+Only allowlisted configuration stores are editable; there is no formatting entry point.
 The migration CLI deliberately does not import this preview module.
 """
 from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+
+import inkkit_schema as schema
+import inkkit_codec as codec
 import fcntl
 import hashlib
 import json
@@ -43,42 +46,26 @@ class Field:
     kind: str
     default: object
     minimum: int = 0
-    maximum: int = 1
+    maximum: int = 255
+    choices: object = ()
+    readonly: str = ''
+    section: str = ''
+    step: int = 1
 
     def validate(self, value):
-        if self.kind == 'text':
-            if type(value) is not str:
-                raise ConfigError('invalid_value', 'A text setting has an invalid value.')
-            try:
-                length = len(value.encode('utf-8'))
-            except UnicodeError:
-                raise ConfigError('invalid_value', 'Text must be valid UTF-8.') from None
-            # Empty deviceName uses the hardware name; nonempty names need 2–20 bytes.
-            if (length and not 2 <= length <= 20) or any(ord(c) < 32 or ord(c) == 127 for c in value):
-                raise ConfigError('invalid_value', 'Device name must be empty or 2–20 UTF-8 bytes without control characters.')
-        elif type(value) is not int or not self.minimum <= value <= self.maximum:
-            raise ConfigError('invalid_value', 'A numeric setting is outside its supported range or type.')
+        try:
+            codec.validate(self.public(), value)
+        except ValueError as error:
+            raise ConfigError('invalid_value', str(error)) from None
 
     def public(self):
         return dict(key=self.key, label=self.label, group=self.group, kind=self.kind,
-                    default=self.default, minimum=self.minimum, maximum=self.maximum)
+                    default=self.default, minimum=self.minimum, maximum=self.maximum,
+                    choices=self.choices, readonly=self.readonly, section=self.section or self.group.capitalize(),
+                    step=self.step)
 
 
-# Raw SD storage values, not Web API display indexes. Expand only with source tests.
-FIELDS = (
-    Field('lineHeightPercent', 'Line height', 'reading', 'integer', 100, 70, 200),
-    Field('wordSpacing', 'Word spacing', 'reading', 'integer', 0, 0, 4),
-    Field('screenMarginHorizontal', 'Horizontal margin', 'reading', 'integer', 5, 5, 150),
-    Field('screenMarginVertical', 'Vertical margin', 'reading', 'integer', 5, 5, 150),
-    Field('hyphenationEnabled', 'Hyphenation', 'reading', 'toggle', 0),
-    Field('embeddedStyle', 'Use embedded styles', 'reading', 'toggle', 1),
-    Field('screenInverted', 'Invert screen', 'device', 'toggle', 0),
-    Field('deviceName', 'Device name', 'device', 'text', ''),
-    Field('sleepTimeoutMinutes', 'Sleep after', 'device', 'integer', 10, 1, 31),
-    Field('showHiddenFiles', 'Show hidden files', 'device', 'toggle', 0),
-    Field('hideFileExtension', 'Hide file extensions', 'device', 'toggle', 0),
-    Field('trackReadingStats', 'Track reading statistics', 'device', 'toggle', 1),
-)
+FIELDS = tuple(Field(**field) for field in schema.main_fields('X3', {}))
 BY_KEY = {field.key: field for field in FIELDS}
 
 
@@ -111,15 +98,27 @@ def parse_object(data):
         raise ConfigError('invalid_json', 'Settings must be a bounded, valid UTF-8 JSON object without duplicate keys.') from None
 
 
-def _document(data):
-    doc = parse_object(data)
-    for field in FIELDS:
-        if field.key in doc:
-            field.validate(doc[field.key])
-    # Legacy aliases have different semantics. Do not silently import defaults.
-    if any(key in doc for key in ('lineSpacing', 'screenMargin', 'sleepTimeout')):
-        raise ConfigError('legacy_settings', 'Legacy settings need firmware migration before this preview can edit them.')
+def _document(data, store='settings'):
+    if data is None:
+        doc = {'path': ''} if store == 'dictionary' else {}
+    elif store == 'dictionary':
+        try:
+            doc = {'path': data.decode('utf-8')}
+        except UnicodeError:
+            raise ConfigError('invalid_json', 'The dictionary path is not valid UTF-8.') from None
+    else:
+        doc = parse_object(data)
+    if store == 'settings' and any(key in doc for key in ('lineSpacing', 'screenMargin', 'sleepTimeout')):
+        raise ConfigError('legacy_settings', 'Legacy settings need firmware migration before editing.')
+    try:
+        codec.validate_document(doc, store)
+    except (ValueError, TypeError, KeyError, IndexError):
+        raise ConfigError('invalid_value', 'This saved configuration has an unsupported structure or field type. Preserve it and let the firmware migrate it before editing.') from None
     return doc
+
+
+def _encoded(doc, store):
+    return doc['path'].encode('utf-8') if store == 'dictionary' else _json_bytes(doc)
 
 
 def _json_bytes(value):
@@ -168,13 +167,13 @@ def _open_directory(path):
         raise
 
 
-def _read_at(directory, name):
+def _read_at(directory, name, require_owner=True):
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
     try:
         info = os.fstat(fd)
         parent = os.fstat(directory)
         if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_dev != parent.st_dev
-                or info.st_uid != os.getuid() or info.st_size > MAX_BYTES):
+                or (require_owner and info.st_uid != os.getuid()) or info.st_size > MAX_BYTES):
             raise ConfigError('unsafe_file', 'A configuration or backup file is not a safe regular file.')
         chunks, size = [], 0
         while True:
@@ -221,26 +220,52 @@ def _atomic_record(directory, record):
 
 
 class _Workspace:
-    def __init__(self, root):
+    def __init__(self, root, store='settings', model=None):
+        self.reference = str(root)
         self.root = Path(root)
-        self.fd = self.config = None
+        self.store = store
+        self.model = model
+        self.fd = self.config = self.hostfd = None
+        self.synthetic = not self.reference.startswith('card:')
+        self.context = None
 
     def __enter__(self):
         try:
-            temp = _host_temp()
-            if self.root.parent != temp or not re.fullmatch(r'inkkit-preview-[a-z0-9_]{8}', self.root.name):
-                raise ConfigError('synthetic_only', 'This developer preview opens only its own synthetic workspaces; SD cards are disabled.')
-            self.fd = _open_directory(self.root)
-            info = os.fstat(self.fd)
-            if (info.st_dev != temp.stat().st_dev or info.st_uid != os.getuid()
-                    or stat.S_IMODE(info.st_mode) != 0o700):
-                raise ConfigError('unsafe_workspace', 'The synthetic workspace identity or permissions changed.')
-            marker = parse_object(_read_at(self.fd, '.inkkit-preview.json')[0])
-            if marker != dict(format=FORMAT, identity=_identity(info), profile=PROFILE):
-                raise ConfigError('unsafe_workspace', 'The synthetic workspace identity or profile changed.')
+            if self.store not in schema.STORES:
+                raise ConfigError('store', 'Choose a supported configuration category.')
+            if self.synthetic:
+                temp = _host_temp()
+                if self.root.parent != temp or not re.fullmatch(r'inkkit-preview-[a-z0-9_]{8}', self.root.name):
+                    raise ConfigError('synthetic_only', 'Open an SD card explicitly, or choose a synthetic demo created by this app.')
+                self.fd = _open_directory(self.root)
+                info = os.fstat(self.fd)
+                if info.st_dev != temp.stat().st_dev or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+                    raise ConfigError('unsafe_workspace', 'The synthetic workspace identity or permissions changed.')
+                marker = parse_object(_read_at(self.fd, '.inkkit-preview.json')[0])
+                expected = dict(format=FORMAT, identity=_identity(info), profile=PROFILE)
+                if {key: marker.get(key) for key in expected} != expected:
+                    raise ConfigError('unsafe_workspace', 'The synthetic workspace identity or profile changed.')
+                self.model = self.model or marker.get('model', 'X3')
+                self.hostfd = self.fd
+                self.record_identity = _identity(info)
+            else:
+                import inkkit_volume
+                self.context = inkkit_volume.session_context(self.reference)
+                if self.model is not None and self.model != self.context['model']:
+                    raise ConfigError('profile', 'The selected model differs from this card session.')
+                self.model = self.context['model']
+                self.root = Path(self.context['root'])
+                self.fd = _open_directory(self.root)
+                info = os.fstat(self.fd)
+                self.hostfd = _open_directory(self.context['storage'])
+                self.record_identity = self.context['identity']
+                inkkit_volume.ensure_separate_storage(info, os.fstat(self.hostfd))
+            if self.model not in schema.MODELS:
+                raise ConfigError('profile', 'Choose a supported XTEINK model.')
+            self.filename = schema.STORES[self.store][0]
             self.config = os.open('.crosspoint', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.fd)
             config_info = os.fstat(self.config)
-            if config_info.st_dev != info.st_dev or config_info.st_uid != os.getuid():
+            if config_info.st_dev != info.st_dev or (self.synthetic and config_info.st_uid != os.getuid()):
                 raise ConfigError('unsafe_workspace', 'The configuration directory identity changed.')
             self.identity = _identity(info)
             self.config_identity = _identity(config_info)
@@ -250,23 +275,25 @@ class _Workspace:
             raise
 
     def __exit__(self, *args):
-        for fd in (self.config, self.fd):
-            if fd is not None:
-                os.close(fd)
+        for fd in {fd for fd in (self.config, self.fd, self.hostfd) if fd is not None}:
+            os.close(fd)
+        self.config = self.fd = self.hostfd = None
 
     def live(self):
-        with _Workspace(self.root) as current:
-            if current.identity != self.identity or current.config_identity != self.config_identity:
-                raise ConfigError('external_change', 'The workspace changed. Reload before continuing.')
+        with _Workspace(self.reference, self.store, self.model) as current:
+            if current.identity != self.identity or current.config_identity != self.config_identity or current.record_identity != self.record_identity:
+                raise ConfigError('external_change', 'The card or workspace changed. Reload before continuing.')
+
+    def fields(self, doc):
+        return tuple(Field(**field) for field in schema.store_fields(self.store, self.model, doc))
 
     @contextmanager
     def lock(self):
-        fd = os.open('.inkkit-lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=self.fd)
+        fd = os.open('.inkkit-lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=self.hostfd)
         try:
             info = os.fstat(fd)
-            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_dev != os.fstat(self.fd).st_dev
-                    or info.st_uid != os.getuid()):
-                raise ConfigError('unsafe_workspace', 'The workspace lock is unsafe.')
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_dev != os.fstat(self.hostfd).st_dev or info.st_uid != os.getuid()):
+                raise ConfigError('unsafe_workspace', 'The configuration lock is unsafe.')
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
@@ -278,17 +305,22 @@ class _Workspace:
 
     def snapshot(self):
         self.live()
-        raw, info = _read_at(self.config, SETTINGS_FILE)
+        try:
+            raw, info = _read_at(self.config, self.filename, require_owner=self.synthetic)
+        except FileNotFoundError:
+            if self.store == 'settings':
+                raise ConfigError('missing_settings', 'Run CrossInk once to create its namespaced settings file before editing.') from None
+            raw, info = None, None
         # Existing firmware recovery evidence is never consumed or overwritten.
-        for name in (SETTINGS_FILE + '.tmp', SETTINGS_FILE + '.bak'):
+        for name in (self.filename + '.tmp', self.filename + '.bak'):
             try:
                 os.stat(name, dir_fd=self.config, follow_symlinks=False)
             except FileNotFoundError:
                 continue
             raise ConfigError('recovery_pending', 'Firmware recovery files exist. Resolve them before editing settings.')
-        doc = _document(raw)
-        token = dict(root=self.identity, directory=self.config_identity, file=_identity(info),
-                     sha256=digest(raw), mtime_ns=info.st_mtime_ns, size=info.st_size)
+        doc = _document(raw, self.store)
+        token = dict(root=self.identity, directory=self.config_identity, file=_identity(info) if info else None,
+                     sha256=digest(raw) if raw is not None else None, mtime_ns=info.st_mtime_ns if info else None, size=info.st_size if info else 0, store=self.store)
         return raw, doc, token
 
     def require(self, expected):
@@ -298,15 +330,16 @@ class _Workspace:
         return raw, doc, token
 
     def backups(self, create=False):
+        name = 'backups' if self.store == 'settings' else 'backups-' + self.store
         if create:
             try:
-                os.mkdir('backups', 0o700, dir_fd=self.fd)
-                os.fsync(self.fd)
+                os.mkdir(name, 0o700, dir_fd=self.hostfd)
+                os.fsync(self.hostfd)
             except FileExistsError:
                 pass
-        fd = os.open('backups', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.fd)
+        fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.hostfd)
         info = os.fstat(fd)
-        if info.st_dev != os.fstat(self.fd).st_dev or stat.S_IMODE(info.st_mode) != 0o700 or info.st_uid != os.getuid():
+        if info.st_dev != os.fstat(self.hostfd).st_dev or stat.S_IMODE(info.st_mode) != 0o700 or info.st_uid != os.getuid():
             os.close(fd)
             raise ConfigError('unsafe_file', 'The backup directory identity or permissions changed.')
         return fd
@@ -318,10 +351,10 @@ class _Workspace:
             backup_id = uuid.uuid4().hex
             os.mkdir(backup_id, 0o700, dir_fd=parent)
             fd = os.open(backup_id, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
-            record = dict(format=RECORD_FORMAT, profile=PROFILE, identity=self.identity,
+            record = dict(format=RECORD_FORMAT, profile=PROFILE, identity=self.record_identity, store=self.store, before_exists=raw is not None,
                           id=backup_id, created=int(time.time()), state='prepared',
-                          before_sha256=digest(raw), after_sha256=digest(updated))
-            _write_new(fd, 'before.bin', raw)
+                          before_sha256=digest(raw or b''), after_sha256=digest(updated or b''))
+            _write_new(fd, 'before.bin', raw or b'')
             _atomic_record(fd, record)
             if digest(_read_at(fd, 'before.bin')[0]) != record['before_sha256']:
                 raise ConfigError('backup_failed', 'The original settings backup did not verify. No settings were changed.')
@@ -345,9 +378,10 @@ class _Workspace:
                 raise ConfigError('invalid_backup', 'The backup directory is unsafe.')
             record = parse_object(_read_at(fd, 'record.json')[0])
             if (record.get('format') != RECORD_FORMAT or record.get('profile') != PROFILE
-                    or record.get('identity') != self.identity or record.get('id') != backup_id
+                    or record.get('identity') != self.record_identity or record.get('store', 'settings') != self.store or record.get('id') != backup_id
                     or record.get('state') not in ('prepared', 'written', 'restoring', 'restored')
                     or type(record.get('created')) is not int
+                    or type(record.get('before_exists', True)) is not bool
                     or any(not isinstance(record.get(key), str) or not re.fullmatch(r'[0-9a-f]{64}', record[key])
                            for key in ('before_sha256', 'after_sha256'))):
                 raise ConfigError('invalid_backup', 'The backup record is invalid or belongs to another workspace.')
@@ -360,11 +394,19 @@ class _Workspace:
     def replace(self, updated, expected):
         name = '.inkkit-write-' + uuid.uuid4().hex
         try:
-            _write_new(self.config, name, updated)
+            if updated is not None:
+                _write_new(self.config, name, updated)
             self.require(expected)
-            os.replace(name, SETTINGS_FILE, src_dir_fd=self.config, dst_dir_fd=self.config)
+            if updated is None:
+                os.unlink(self.filename, dir_fd=self.config)
+            else:
+                os.replace(name, self.filename, src_dir_fd=self.config, dst_dir_fd=self.config)
             os.fsync(self.config)
-            if _read_at(self.config, SETTINGS_FILE)[0] != updated:
+            try:
+                actual = _read_at(self.config, self.filename, require_owner=self.synthetic)[0]
+            except FileNotFoundError:
+                actual = None
+            if actual != updated:
                 raise ConfigError('verification_failed', 'The written settings did not verify. Review the retained backup.')
             self.live()
         finally:
@@ -374,57 +416,78 @@ class _Workspace:
                 pass
 
 
-def create_demo():
+def create_demo(model='X3'):
+    if model not in schema.MODELS:
+        raise ConfigError('profile', 'Choose a supported XTEINK model.')
     root = Path(tempfile.mkdtemp(prefix='inkkit-preview-', dir=_host_temp())).resolve()
     os.chmod(root, 0o700)
+    marker = dict(format=FORMAT, identity=_identity(root.stat()), profile=PROFILE, model=model)
     with os.fdopen(os.open(root / '.inkkit-preview.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as handle:
-        handle.write(_json_bytes(dict(format=FORMAT, identity=_identity(root.stat()), profile=PROFILE)))
+        handle.write(_json_bytes(marker))
     (root / '.crosspoint').mkdir(mode=0o700)
-    doc = {field.key: field.default for field in FIELDS}
+    # Firmware-like defaults, including structured bars and schema stamps.
+    doc = schema.effective_settings({})
+    doc['uiScale'] = 1 if 'touch' in schema.MODELS[model] else 0
     doc['deviceName'] = 'Example Reader'
+    doc['tiltPageTurnDirectionSchema'] = 2
     doc['futureOption'] = dict(enabled=True, password_obf='example-opaque-preserved')
     with os.fdopen(os.open(root / '.crosspoint' / SETTINGS_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as handle:
         handle.write(_json_bytes(doc))
     return str(root)
 
 
-def read_settings(root):
-    with _Workspace(root) as workspace:
+def read_settings(root, store='settings', model=None):
+    with _Workspace(root, store, model) as workspace:
         _, doc, token = workspace.snapshot()
-        return dict(profile=PROFILE, synthetic=True, fields=[field.public() for field in FIELDS],
-                    values={field.key: doc.get(field.key, field.default) for field in FIELDS}, token=token)
+        fields = [field.public() for field in workspace.fields(doc)]
+        return dict(profile=PROFILE, firmware=schema.FIRMWARE_VERSION, synthetic=workspace.synthetic,
+                    model=workspace.model, store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
+                    fields=fields, values=codec.values(doc, store, fields), token=token,
+                    has_plaintext=_has_plaintext(doc), label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
 
 
-def _changes(doc, changes):
-    if type(changes) is not dict or any(key not in BY_KEY for key in changes):
-        raise ConfigError('unsupported_field', 'Only the supported non-credential settings can be changed.')
-    result = []
-    for field in FIELDS:
-        if field.key not in changes:
-            continue
-        value = changes[field.key]
-        field.validate(value)
-        before = doc.get(field.key, field.default)
-        if before != value:
-            result.append(dict(key=field.key, label=field.label, before=before, after=value))
-    return result
+def _has_plaintext(value):
+    if isinstance(value, dict):
+        return bool(value.get('password')) or any(_has_plaintext(child) for key, child in value.items() if key != 'password')
+    return isinstance(value, list) and any(_has_plaintext(child) for child in value)
 
 
-def preview_changes(root, expected, changes):
-    with _Workspace(root) as workspace:
+def _plan(workspace, doc, changes, allow_plaintext=True):
+    fields = [field.public() for field in workspace.fields(doc)]
+    if type(changes) is not dict or any(key not in {field['key'] for field in fields} for key in changes):
+        raise ConfigError('unsupported_field', 'Only supported configuration fields can be changed.')
+    try:
+        updated, secret = codec.patch_document(doc, workspace.store, fields, changes, allow_plaintext)
+        diff = codec.differences(doc, updated, workspace.store, fields, changes)
+    except (ValueError, TypeError, KeyError, IndexError) as error:
+        # Codec errors are fixed public descriptions, never interpolated input.
+        message = str(error) if isinstance(error, ValueError) else 'This configuration has an unsupported structure.'
+        raise ConfigError('invalid_value', message) from None
+    return updated, diff, secret
+
+
+def preview_plan(root, expected, changes, store='settings', model=None):
+    with _Workspace(root, store, model) as workspace:
         _, doc, _ = workspace.require(expected)
-        return _changes(doc, changes)
+        updated, diff, _ = _plan(workspace, doc, changes)
+        return dict(differences=diff, requires_plaintext=bool(_has_plaintext(updated)))
 
 
-def apply_changes(root, expected, changes):
-    with _Workspace(root) as workspace, workspace.lock():
+def preview_changes(root, expected, changes, store='settings', model=None):
+    return preview_plan(root, expected, changes, store, model)['differences']
+
+
+def apply_changes(root, expected, changes, store='settings', model=None, allow_plaintext=False):
+    if type(allow_plaintext) is not bool:
+        raise ConfigError('consent', 'Plaintext handoff requires explicit boolean consent for this apply.')
+    with _Workspace(root, store, model) as workspace, workspace.lock():
         raw, doc, _ = workspace.require(expected)
-        diff = _changes(doc, changes)
-        if not diff:
-            return dict(changed=False, backup_id=None, snapshot=read_settings(root))
-        for entry in diff:
-            doc[entry['key']] = entry['after']
-        updated = _json_bytes(doc)
+        updated_doc, diff, _ = _plan(workspace, doc, changes, allow_plaintext)
+        if updated_doc == doc:
+            return dict(changed=False, backup_id=None, snapshot=read_settings(root, store, model))
+        if _has_plaintext(updated_doc) and not allow_plaintext:
+            raise ConfigError('consent', 'Explicit plaintext-handoff consent is required whenever the resulting file contains passwords.')
+        updated = _encoded(updated_doc, store)
         backup_id, record = workspace.backup(raw, updated)
         try:
             workspace.replace(updated, expected)
@@ -433,11 +496,11 @@ def apply_changes(root, expected, changes):
                 _atomic_record(fd, record)
         except (OSError, ConfigError):
             raise ConfigError('apply_incomplete', 'Apply did not finish. Reload and review the retained backup before retrying.') from None
-        return dict(changed=True, backup_id=backup_id, snapshot=read_settings(root))
+        return dict(changed=True, backup_id=backup_id, snapshot=read_settings(root, store, model))
 
 
-def list_backups(root):
-    with _Workspace(root) as workspace:
+def list_backups(root, store='settings', model=None):
+    with _Workspace(root, store, model) as workspace:
         try:
             parent = workspace.backups()
         except FileNotFoundError:
@@ -445,7 +508,7 @@ def list_backups(root):
         try:
             names = os.listdir(parent)
             if len(names) > 500:
-                raise ConfigError('backup_limit', 'This workspace has too many backup entries. Start a new synthetic demo.')
+                raise ConfigError('backup_limit', 'There are too many recovery records. Preserve and archive older Mac-side backups before reopening.')
         finally:
             os.close(parent)
         records = []
@@ -462,31 +525,47 @@ def list_backups(root):
         return sorted(records, key=lambda record: (record['created'], record['id']), reverse=True)
 
 
-def preview_restore(root, expected, backup_id):
-    with _Workspace(root) as workspace:
-        current, doc, _ = workspace.require(expected)
-        with workspace.record(backup_id) as (fd, record):
-            raw = _read_at(fd, 'before.bin')[0]
-            original = _document(raw)
-            if digest(raw) != record['before_sha256']:
-                raise ConfigError('invalid_backup', 'The original settings backup failed its integrity check.')
-            if digest(current) not in (record['before_sha256'], record['after_sha256']):
-                raise ConfigError('external_change', 'Settings no longer match this backup. No files were restored.')
-            return _changes(doc, {field.key: original.get(field.key, field.default) for field in FIELDS})
+def _restore_source(workspace, current, backup_id):
+    with workspace.record(backup_id) as (fd, record):
+        raw = _read_at(fd, 'before.bin')[0]
+        if digest(raw) != record['before_sha256']:
+            raise ConfigError('invalid_backup', 'The original configuration backup failed its integrity check.')
+        original = raw if record.get('before_exists', True) else None
+        doc = _document(original, workspace.store)
+        if digest(current or b'') not in (record['before_sha256'], record['after_sha256']):
+            raise ConfigError('external_change', 'Configuration no longer matches this backup. No files were restored.')
+        return original, doc, record
 
 
-def restore_backup(root, expected, backup_id):
-    with _Workspace(root) as workspace, workspace.lock():
+def restore_requires_plaintext(root, expected, backup_id, store='settings'):
+    with _Workspace(root, store) as workspace:
         current, _, _ = workspace.require(expected)
+        original, before, _ = _restore_source(workspace, current, backup_id)
+        return current != original and _has_plaintext(before)
+
+
+def preview_restore(root, expected, backup_id, store='settings', model=None):
+    with _Workspace(root, store, model) as workspace:
+        current, doc, _ = workspace.require(expected)
+        original, before, record = _restore_source(workspace, current, backup_id)
+        fields = [field.public() for field in workspace.fields(doc)]
+        diff = codec.differences(doc, before, store, fields)
+        if not diff and current != original:
+            diff.append(dict(key='file', label='Configuration file', before='Current file', after='Original file bytes'))
+        return diff
+
+
+def restore_backup(root, expected, backup_id, store='settings', model=None, allow_plaintext=False):
+    if type(allow_plaintext) is not bool:
+        raise ConfigError('consent', 'Plaintext handoff requires explicit boolean consent for this restore.')
+    with _Workspace(root, store, model) as workspace, workspace.lock():
+        current, _, _ = workspace.require(expected)
+        raw, before, record = _restore_source(workspace, current, backup_id)
+        if current == raw:
+            return dict(changed=False, snapshot=read_settings(root, store, model))
+        if _has_plaintext(before) and not allow_plaintext:
+            raise ConfigError('consent', 'Explicit plaintext-handoff consent is required to restore plaintext credentials.')
         with workspace.record(backup_id) as (fd, record):
-            raw = _read_at(fd, 'before.bin')[0]
-            _document(raw)
-            if digest(raw) != record['before_sha256']:
-                raise ConfigError('invalid_backup', 'The original settings backup failed its integrity check.')
-            if digest(current) == record['before_sha256']:
-                return dict(changed=False, snapshot=read_settings(root))
-            if digest(current) != record['after_sha256']:
-                raise ConfigError('external_change', 'Settings no longer match this backup. No files were restored.')
             record['state'] = 'restoring'
             _atomic_record(fd, record)
             try:
@@ -495,4 +574,4 @@ def restore_backup(root, expected, backup_id):
                 _atomic_record(fd, record)
             except (OSError, ConfigError):
                 raise ConfigError('restore_incomplete', 'Restore did not finish. Reload and review the retained backup.') from None
-        return dict(changed=True, snapshot=read_settings(root))
+        return dict(changed=True, snapshot=read_settings(root, store, model))

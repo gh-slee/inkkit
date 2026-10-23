@@ -11,6 +11,7 @@
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSRemovableVolumesUsageDescription</key><string>Read and update CrossInk settings on the SD card you explicitly select. Original settings are backed up privately on your Mac.</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSHumanReadableCopyright</key><string>InkKit contributors. See the bundled licenses.</string>
 </dict>

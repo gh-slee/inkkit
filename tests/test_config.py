@@ -299,8 +299,8 @@ class ConfigTests(unittest.TestCase):
             if dst == config.SETTINGS_FILE:
                 armed[0] = True
             return result
-        def changed(fd, name):
-            raw, info = original(fd, name)
+        def changed(fd, name, **kwargs):
+            raw, info = original(fd, name, **kwargs)
             if armed[0] and name == config.SETTINGS_FILE:
                 return raw + b' ', info
             return raw, info

@@ -3,8 +3,8 @@
 ## Layout and setup
 
 InkKit is the project name; `xteink_sd_migrate.py` remains the stable migration entry
-point. Wi-Fi connection editing and real-card settings tools are planned. A local
-SwiftUI developer preview edits only its own synthetic workspaces; see
+point. Development source adds a six-store native current-card configuration app
+and synthetic demos, with physical settings acceptance still pending; see
 [macOS preview](macos-preview.md) and [configuration architecture](config-architecture.md).
 
 `xteink_sd_migrate.py` is the stable CLI and contains the single `__version__`
@@ -20,7 +20,7 @@ git clone https://github.com/gh-slee/inkkit.git
 cd inkkit
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py scripts tests
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --help
 ```
@@ -110,3 +110,14 @@ remain unstaged and uncommitted for review; do not manufacture a release/version
 or create a new public roadmap for instruction maintenance. Use the existing Issues
 tracker for substantive public tasks with explicit acceptance conditions. Record
 local verification privately and distinguish local checks from pushed CI results.
+
+## Configuration coverage maintenance
+
+After changing field/storage/model metadata, run
+`python3 scripts/check_configuration_docs.py --write` and review the README block
+and full reference. CI runs the same generator in check mode and rejects drift.
+This prevents internal documentation drift, not unreviewed upstream changes:
+a new firmware release still needs a pinned source/schema audit and new fixtures.
+Update behavior/usage/security docs alongside implementation. New profile tests
+exercise every editable main control and every enum choice per model, synthetic
+store CRUD/recovery, credential redaction/consent and mocked card-session guards.
