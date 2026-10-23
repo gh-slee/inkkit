@@ -28,6 +28,7 @@ PUBLIC_PATHS = {
     'crossink_profile.py', 'inkkit_schema.py', 'inkkit_codec.py', 'inkkit_volume.py',
     'tests/test_config_stores.py', 'tests/test_config_volume.py',
     'scripts/check_configuration_docs.py', 'docs/configuration-reference.md',
+    'docs/configuration-validation.md',
 }
 MAX_BYTES = 2 * 1024**2
 SECRET_PATTERNS = (

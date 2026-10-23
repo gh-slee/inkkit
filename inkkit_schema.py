@@ -83,6 +83,19 @@ def effective_settings(doc):
     result.update(sdFontFamilyName='', dictionaryFont='', dictionaryFontSize=0,
                   language='EN', keyboardLayouts=0, quickActionsTrigger=0,
                   quickActionSlots=[0] * 5, displayStatusBar=[0, 0, 2])
+    # Match the firmware loader's conditional defaults before deriving layouts.
+    # These are effective display values only; patches still preserve absent keys.
+    if 'previousPageGesture' not in doc:
+        result['previousPageGesture'] = doc.get('pageTurnGesture', result['pageTurnGesture'])
+    if 'screenInverted' not in doc and 'readerDarkMode' in doc:
+        result['screenInverted'] = doc['readerDarkMode'] if doc['readerDarkMode'] in (0, 1) else 0
+    if 'hideClock' not in doc and 'statusBarClock' in doc:
+        result['hideClock'] = 0 if doc['statusBarClock'] in (1, 2) else 2
+    if 'fileBrowserDisplay' not in doc:
+        if 'fileBrowserPreview' in doc:
+            result['fileBrowserDisplay'] = doc['fileBrowserPreview'] if doc['fileBrowserPreview'] in (0, 1) else 0
+        elif doc.get('uiTheme', result['uiTheme']) == 5:
+            result['fileBrowserDisplay'] = 1
     result['readerStatusBars'] = dict(version=1, xtcMode=doc.get('xtcStatusBarMode', 0),
                                     legacyXtcTopUsesBottom=doc.get('xtcStatusBarMode', 0) == 2,
                                     top=dict(slots=[0] * 7, percentageFormat=0, progressBar=2, thickness=1),
@@ -102,11 +115,11 @@ def effective_settings(doc):
         bottom['slots'] = (left + [0] * 3)[:3] + [8 if old['statusBarTitle'] == 0 else 9 if old['statusBarTitle'] == 1 else 0] + (right + [0] * 3)[:3]
         bottom.update(percentageFormat=old['statusBarBookPercentageFormat'], progressBar=old['statusBarProgressBar'],
                       thickness=old['statusBarProgressBarThickness'])
-    if 'readerStatusBars' not in doc and doc.get('hideClock', 2) == 0:
+    if 'readerStatusBars' not in doc and doc.get('hideClock', result['hideClock']) == 0:
         result['readerStatusBars']['top']['slots'][3] = 1
     if 'displayStatusBar' not in doc:
-        show_clock = bool(doc.get('showClockOutsideReader', doc.get('hideClock', 2) != 2))
-        result['displayStatusBar'] = [0, 1 if show_clock else 0, 0 if doc.get('hideBatteryPercentage', 0) == 2 else 2]
+        show_clock = bool(doc.get('showClockOutsideReader', doc.get('hideClock', result['hideClock']) != 2))
+        result['displayStatusBar'] = [0, 1 if show_clock else 0, 2]
     result.update(deepcopy(doc))
     return result
 
@@ -189,6 +202,8 @@ def main_fields(model, doc):
             field['default'] = 1 if 'touch' in capabilities else 0
         if key.startswith('frontlightSchedule') and key.endswith(('Start', 'End')):
             field['kind'] = 'time'
+        if key == 'fontFamily':
+            field['label'] = 'Built-in font (used when SD font family is empty)'
         if key == 'clockHasBeenSynced':
             field['label'] = 'Clock sync flag (does not set the hardware clock)'
         if key == 'clockUtcOffsetQ':

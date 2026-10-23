@@ -69,6 +69,19 @@ and [build/use instructions](docs/macos-preview.md). The app does not format car
 execute sync/network operations or install font/dictionary assets.
 <!-- configuration-summary:end -->
 
+### What has actually been verified
+
+The controls use CrossInk's real storage formats. **Synthetic demo** is invented
+example data; **Open SD card** uses real, reviewed configuration-file writes.
+File readback proves saved bytes, not that firmware loaded them or a connection
+succeeded. No settings have yet been accepted on a physical reader.
+
+See [source-audit evidence and X3 acceptance gates](docs/configuration-validation.md).
+README screenshots will follow actual X3 settings acceptance and visual review;
+published captures will show the real native app with clearly labeled synthetic
+example data. No mockup images are presented as working-device evidence.
+
+
 ## Quick start
 
 Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
@@ -232,11 +245,16 @@ Other hidden data, including `.crosspoint/`, `.fonts/` and unfamiliar reader dir
 | Layer | Technology |
 | --- | --- |
 | Interface | Direct Python 3.9+ CLI; no package installation |
-| Local app preview | SwiftUI, bundled CPython 3.12 helper; explicit current-card sessions and synthetic demos |
-| Disk discovery / formatting | macOS `diskutil` property lists and a guarded erase entry point |
+| Native app | SwiftUI + AppKit; Swift 5 language mode, local macOS 14+ build for the build host CPU |
+| Configuration core | Python 3.9+ standard library; six pinned CrossInk stores, model-aware schema and validation |
+| App/helper boundary | Versioned JSON over stdin/stdout pipes; no local web server or runtime AI dependency |
+| App runtime | Bundled CPython 3.12 development runtime; runs without Python on PATH |
+| Configuration recovery | Private Mac-side original-file snapshots, SHA-256, no-follow descriptors, stale-token checks and guarded restore |
+| macOS storage | Read-only `diskutil` property lists and safe eject for the app; guarded erase belongs only to the separate migration CLI |
 | Backup and integrity | Standard-library `zipfile`, JSON, `hashlib` SHA-256 |
 | Restore safety | Directory descriptors, no-follow paths, exclusive file creation, disk/mount checks |
 | Verification | `unittest`, temporary synthetic files and mocked disk commands |
+| App distribution | Local ad-hoc-signed `.app`; no public installer, Developer ID signature or notarization yet |
 | Contributor privacy | Standard-library publication guard, local Git hooks, GitHub Actions |
 
 The CLI has no third-party runtime dependencies. The optional local app bundles its
@@ -259,6 +277,7 @@ from published snapshots.
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
 | Published release validation | [v1.0.0 exact-commit CI](https://github.com/gh-slee/inkkit/actions/runs/39847722957) on `ef927dc`: 166 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits; later development commits require their own checks |
 | Real hardware | [X3 backup, restore/readback, safe eject and owner-confirmed reader acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on revision `505c1c5`; other physical combinations pending |
+| Configuration evidence | [Pinned-source audit, synthetic/IPC checks and pending X3 settings acceptance](docs/configuration-validation.md); expected X4-family capabilities remain physically untested |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
 No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.

@@ -121,3 +121,9 @@ a new firmware release still needs a pinned source/schema audit and new fixtures
 Update behavior/usage/security docs alongside implementation. New profile tests
 exercise every editable main control and every enum choice per model, synthetic
 store CRUD/recovery, credential redaction/consent and mocked card-session guards.
+
+The configuration reference links every main storage root to its pinned upstream
+definition/serializer. When changing the firmware profile, re-audit both save and
+load behavior, including conditional defaults; tests generated from the same schema
+cannot independently prove that the schema matches firmware. See the dated
+[source audit and acceptance gates](configuration-validation.md).

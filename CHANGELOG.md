@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Re-audit pinned CrossInk sources and correct effective defaults for inherited
+  previous-page gestures, legacy dark-mode/clock/browser preferences, Minimal-theme
+  browser layout and display-bar battery fallback. Reject partially migrated legacy
+  side-button pairs; preserve absent keys on no-op.
+  Clarify SD-font precedence, link every main control to its upstream definition
+  and document source/synthetic/native/physical evidence separately. Update the
+  README tech stack and gate screenshots on real X3 settings acceptance.
+
 - Add a native SwiftUI configuration development app with 148 model-aware main
   controls, Wi-Fi/OPDS CRUD, reading sync, 24 TTF profiles and global dictionary
   selection, pinned to CrossInk v1.6.1. Explicit current-card sessions use removable

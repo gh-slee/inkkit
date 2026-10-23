@@ -4,6 +4,7 @@ This is **not a released Mac app**. Development source provides native forms for
 CrossInk v1.6.1 global settings on an explicitly selected current SD card, as well
 as synthetic demos. See [every supported control](configuration-reference.md).
 No new settings workflow has physical acceptance; test the synthetic demo first.
+See [source evidence, X3 acceptance and screenshot gates](configuration-validation.md).
 The separately released migration CLI remains unchanged.
 
 ## Build locally
@@ -30,7 +31,8 @@ its own runtime and does not require Python from PATH or Codex to run.
 Choose a demo model, then **Create synthetic demo**. The sidebar groups Display,
 Reading, Library, Controls, Frontlight, Status bars and Device. Separate forms cover
 Wi-Fi, OPDS, Reading sync, Font rendering and Dictionary. Unsupported model controls
-are disabled. Existing unsupported stored values remain visible and unchanged.
+are disabled. Built-in font selection applies when the SD font family is empty;
+a nonempty SD family takes precedence. Clear it explicitly to return to a built-in font. Existing unsupported stored values remain visible and unchanged.
 Use Add/Remove for collection entries; font/dictionary inputs refer to assets
 already installed on the SD card, not Mac paths. Asset installation is not included.
 

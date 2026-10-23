@@ -28,6 +28,10 @@ is separate from implementation scope. Only X3 has reviewed physical acceptance.
   explicit publication scope; roadmap or issue text is not authorization.
 - Keep the README generated configuration block and reference synchronized with
   schema changes: run scripts/check_configuration_docs.py --write, then its check.
+- Before adding app screenshots, require recorded X3 settings acceptance and
+  visual review. Capture the actual native app with labeled synthetic example
+  data; never publish a fabricated UI or real credentials as evidence. See
+  docs/configuration-validation.md.
 - Keep implemented behavior distinct from upstream firmware support and actual
   hardware validation. Update affected docs and report only checks that were run.
 - CI exercises synthetic tests, compilation, CLI smoke checks, source-publication

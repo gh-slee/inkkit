@@ -105,6 +105,7 @@ pipes, never shell arguments. The native launcher clears runtime overrides and
 uses its purpose-specific bundled Python runtime.
 
 `--self-test` runs only a synthetic transaction and removes its own fixture. Native
-self-test also checks typed response decoding and bundled-runtime isolation. Actual
+self-test also checks typed response decoding and bundled-runtime isolation. The [source audit and acceptance gates](configuration-validation.md) distinguish
+file readback from firmware behavior. Actual
 X3 settings acceptance, other-device validation and visual/accessibility QA remain
 separate gates. Existing X3 migration evidence does not validate this editor.

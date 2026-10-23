@@ -98,6 +98,9 @@ def validate_document(doc, store):
                             ('sideButtonLongPress', 'sideButtonUpLong'), ('tiltPageTurn', 'tiltPageTurnDirection')):
             if old in doc and modern not in doc:
                 raise ValueError('Legacy button or tilt mappings need firmware migration first.')
+        for old, suffix in (('sideButtonLayout', 'Short'), ('sideButtonLongPress', 'Long')):
+            if old in doc and any('sideButton' + direction + suffix not in doc for direction in ('Up', 'Down')):
+                raise ValueError('Partially migrated side-button mappings need firmware migration first.')
         bars = doc.get('readerStatusBars')
         if bars is not None:
             if type(bars) is not dict or type(bars.get('version')) is not int or bars.get('version') != 1:

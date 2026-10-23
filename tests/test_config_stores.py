@@ -55,6 +55,27 @@ class StoreTests(unittest.TestCase):
                 else:
                     self.assertEqual(self.path(store).read_bytes(), original)
 
+    def test_firmware_fallbacks_are_displayed_without_noop_rewrites(self):
+        cases = [
+            ({'pageTurnGesture': 3}, 'previousPageGesture', 3),
+            ({'readerDarkMode': 1}, 'screenInverted', 1),
+            ({'statusBarClock': 1}, 'hideClock', 0),
+            ({'uiTheme': 5}, 'fileBrowserDisplay', 1),
+            ({'fileBrowserPreview': 1}, 'fileBrowserDisplay', 1),
+            ({'hideBatteryPercentage': 2}, 'displayStatusBar.2', 2),
+        ]
+        for doc, key, value in cases:
+            with self.subTest(key=key):
+                self.seed('settings', doc)
+                original = self.path('settings').read_bytes()
+                before = self.read('settings')
+                self.assertEqual(before['values'][key], value)
+                self.assertEqual(config.preview_changes(self.root, before['token'], {key: value}), [])
+                result = self.apply('settings', {key: value})
+                self.assertFalse(result['changed'])
+                self.assertEqual(self.path('settings').read_bytes(), original)
+                self.assertEqual(config.list_backups(self.root), [])
+
     def test_opaque_passwords_unknown_fields_and_cfg_version_are_preserved(self):
         examples = {
             'wifi': ({'credentials': [{'ssid': 'Example', 'password_obf': 'example-opaque', 'future': 7}], 'lastConnectedSsid': 'Example', 'futureRoot': [1]}, {'credentials.0.ssid': 'Example renamed'}),
@@ -149,6 +170,8 @@ class StoreTests(unittest.TestCase):
     def test_strict_saved_types_nested_layouts_and_missing_default_noop(self):
         invalid = [('settings', {'orientation': True}), ('settings', {'readerStatusBars': []}),
                    ('settings', {'quickActionSlots': [True, 0, 0, 0, 0]}), ('settings', {'frontButtonLayout': 2}), ('settings', {'fontSize': 2}),
+                   ('settings', {'sideButtonLayout': 1, 'sideButtonUpShort': 2}),
+                   ('settings', {'sideButtonLongPress': 1, 'sideButtonUpLong': 66}),
                    ('koreader', {'sendMetadata': 1}), ('wifi', {'credentials': [{'ssid': 'Example', 'password_obf': 4}]}),
                    ('ttf', {'profiles': [{'family': 'Example', 'stemDarkening': 1}]}), ('opds', {'servers': [{'name': None}]})]
         original = self.path('settings').read_bytes()
@@ -247,12 +270,38 @@ class SchemaTests(unittest.TestCase):
                         result, _ = codec.patch_document(doc, 'settings', fields, changes)
                         self.assertEqual(schema.path_get(result, key), value)
 
+    def test_firmware_conditional_defaults_are_effective_not_written(self):
+        examples = [
+            ({'pageTurnGesture': 3}, 'previousPageGesture', 3),
+            ({'readerDarkMode': 1}, 'screenInverted', 1),
+            ({'statusBarClock': 1}, 'hideClock', 0),
+            ({'uiTheme': 5}, 'fileBrowserDisplay', 1),
+            ({'fileBrowserPreview': 1}, 'fileBrowserDisplay', 1),
+            ({'hideBatteryPercentage': 2}, 'displayStatusBar', [0, 0, 2]),
+            ({'statusBarClock': 2}, 'displayStatusBar', [0, 1, 2]),
+        ]
+        for doc, key, expected in examples:
+            with self.subTest(key=key, doc=doc):
+                self.assertEqual(schema.effective_settings(doc)[key], expected)
+                fields = schema.main_fields('X3', doc)
+                result, _ = codec.patch_document(doc, 'settings', fields, {})
+                self.assertEqual(result, doc)
+        explicit = {'pageTurnGesture': 3, 'previousPageGesture': 1, 'screenInverted': 0,
+                    'readerDarkMode': 1, 'hideClock': 2, 'statusBarClock': 1,
+                    'uiTheme': 5, 'fileBrowserDisplay': 0, 'displayStatusBar': [2, 0, 0]}
+        values = schema.effective_settings(explicit)
+        for key in ('previousPageGesture', 'screenInverted', 'hideClock', 'fileBrowserDisplay', 'displayStatusBar'):
+            self.assertEqual(values[key], explicit[key])
+
     def test_configuration_documentation_matches_schema(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('configuration_docs', Path(__file__).resolve().parents[1] / 'scripts/check_configuration_docs.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertEqual(module.check(), [])
+        self.assertEqual(set(module.SOURCE_LINES), {f['key'].split('.')[0] for f in schema.main_fields('X3', {})})
+        self.assertTrue(all(path.startswith('src/') and type(line) is int and line > 0
+                            for path, line in module.SOURCE_LINES.values()))
         represented = {f['key'].split('.')[0] for f in schema.main_fields('X3', {})}
         catalog = {f['key'] for f in schema.BASE_FIELDS} | set(schema.MEMBER_DEFAULTS)
         legacy = {f['key'] for f in schema.BASE_FIELDS if f['group'] == 'legacy'}
