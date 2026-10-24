@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key><string>io.github.gh-slee.inkkit.preview</string>
+    <key>CFBundleName</key><string>InkKit Preview</string>
+    <key>CFBundleDisplayName</key><string>InkKit Preview</string>
+    <key>CFBundleExecutable</key><string>InkKit</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>VERSION</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSRemovableVolumesUsageDescription</key><string>Read and update CrossInk settings on the SD card you explicitly select. Original settings are backed up privately on your Mac.</string>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key><string>InkKit contributors. See the bundled licenses.</string>
+</dict>
+</plist>

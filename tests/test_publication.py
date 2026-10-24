@@ -1,5 +1,6 @@
 """Publication tests use disposable Git repositories and invented data only."""
 import contextlib
+import hashlib
 import importlib.util
 import io
 import os
@@ -108,6 +109,35 @@ class PublicationTests(unittest.TestCase):
         self.assertTrue(guard.content_issues(b'\0'))
         with patch.object(guard, 'MAX_BYTES', 1):
             self.assertTrue(guard.audit(self.root, 'staged')[1])
+
+    def test_reviewed_native_images_are_exact_and_changed_bytes_are_blocked(self):
+        relative = next(iter(guard.APPROVED_IMAGES))
+        path = self.root / relative
+        path.parent.mkdir(parents=True)
+        invented = b'\xff\xd8synthetic-image-container\xff\xd9'
+        path.write_bytes(invented)
+        reviewed = {relative: frozenset({hashlib.sha256(invented).hexdigest()})}
+        with patch.object(guard, 'APPROVED_IMAGES', reviewed):
+            self.assertEqual(guard.audit(self.root, 'worktree')[1], [])
+            self.git('add', '--', relative)
+            path.write_bytes(invented[:3] + b'changed' + invented[3:])
+            self.assertTrue(guard.audit(self.root, 'worktree')[1])
+            self.assertEqual(guard.audit(self.root, 'staged')[1], [])
+            self.git('add', '--', relative)
+            self.assertTrue(guard.audit(self.root, 'staged')[1])
+
+    def test_image_exception_does_not_allow_unknown_paths_or_binary_source(self):
+        relative = 'assets/macos/unreviewed.jpg'
+        with patch.object(guard, 'git', side_effect=AssertionError('Rejected paths must not be read')):
+            self.assertTrue(guard.inspect_entry(self.root, relative, '100644', 'fake', '0'))
+        (self.root / 'README.md').write_bytes(b'\xff\xd8binary\xff\xd9')
+        self.assertTrue(guard.audit(self.root, 'worktree')[1])
+
+    def test_current_native_capture_files_match_reviewed_hashes(self):
+        project = Path(__file__).resolve().parents[1]
+        for relative in guard.APPROVED_IMAGES:
+            with self.subTest(image=relative):
+                self.assertEqual(guard.inspect_entry(project, relative, '100644', '', '0', worktree=True), [])
 
     def test_unknown_nonignored_source_rejected(self):
         (self.root / 'unreviewed.txt').write_text('Synthetic unknown file')

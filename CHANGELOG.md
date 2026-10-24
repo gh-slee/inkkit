@@ -2,14 +2,66 @@
 
 ## Unreleased
 
+- Add actual native app screenshots with synthetic example data, current UI
+  validation notes and exact-path/hash image publication checks.
+
+- Add complete six-store configuration snapshots: Backup now, newest-first local
+  history, reviewed older-snapshot restore and confirmed deletion. Retain a complete
+  pre-restore state, per-file interruption journals and protected recovery evidence;
+  keep legacy single-file backups with explicit scope and original restore checks.
+- Load firmware/model choices and hardware capabilities from the backend catalogue;
+  hide Frontlight navigation/search for X3, X4 and X4 Classic. Preserve unsupported
+  stored data. Document ongoing future-version/device support through audited
+  providers/tests rather than accepting unknown versions automatically.
+- Record limited owner-reported X3 Restore, safe-eject and Sleep Screen acceptance;
+  distinguish this from exhaustive control/model or new complete-snapshot validation.
+
+- Close SD-card directory handles before normal ejection, retain the independent
+  Mac-side operation lock and recheck card identity before the command. Preserve
+  the session on failure so users can close other files and retry without forcing.
+
+- Preserve full unsigned 64-bit filesystem identities in the native helper
+  protocol. Fix Dictionary loading for empty FAT files with high-bit inode IDs;
+  test lossless Python/Swift identity roundtrips and distinguish decoding errors.
+
+- Reject unavailable or redirected system temporary directories in synthetic demos,
+  including restricted environments that fall back to caller-provided `TMPDIR`.
+
+- Support mounted FAT volumes whose macOS plist omits the optional `Mounted`
+  flag. Require a real mount boundary and exact mount path, retain all media and
+  session identity checks, and reject explicit unmounted or malformed flags.
+
+- Present the reader-profile confirmation using the selected card as the sheet
+  item. Avoid a blank first-open sheet caused by separate presentation/path state.
+  Opening still requires model and firmware confirmation before any card reads.
+
+- Re-audit pinned CrossInk sources and correct effective defaults for inherited
+  previous-page gestures, legacy dark-mode/clock/browser preferences, Minimal-theme
+  browser layout and display-bar battery fallback. Reject partially migrated legacy
+  side-button pairs; preserve absent keys on no-op.
+  Clarify SD-font precedence, link every main control to its upstream definition
+  and document source/synthetic/native/physical evidence separately. Update the
+  README tech stack and gate screenshots on real X3 settings acceptance.
+
+- Add a native SwiftUI configuration development app with 148 model-aware main
+  controls, Wi-Fi/OPDS CRUD, reading sync, 24 TTF profiles and global dictionary
+  selection, pinned to CrossInk v1.6.1. Explicit current-card sessions use removable
+  volume checks, private Mac backups, reviewed/verified apply, guarded exact restore
+  and safe eject; synthetic demos remain available. Selected X3 settings now have limited owner-reported acceptance; other settings
+  and models remain pending, separate from existing X3 migration validation.
+- Preserve opaque passwords; require fresh explicit plaintext-handoff consent for
+  every write/restore containing plaintext. Preserve legacy sync server semantics,
+  unknown fields and missing defaults; enforce model capabilities and persisted IDs.
+- Generate a complete field/storage reference and README summary from the schema;
+  CI rejects documentation drift. Add synthetic field/store/fault/privacy regressions
+  and mocked disk-session tests. Keep migration runtime and release tags unchanged.
+  The local app is ad-hoc signed, not notarized or approved for public distribution.
 - Rename the project and repository to InkKit (`gh-slee/inkkit`). Update project
   identity, CLI branding and repository links; preserve the published v1.0.0 tag,
   stable `xteink_sd_migrate.py` entry point and existing backup/recovery formats.
 - List X3, X4, X4 Classic and X4 Pro individually, with only X3 physically validated.
   Keep other compatible XTEINK models conditional on the shared layout and guards.
   CrossInk firmware support for Seeed Studio Sticky is not an InkKit support claim.
-- Describe saved Wi-Fi connection add/edit/remove and additional reader settings as
-  planned capabilities, separate from the implemented SD backup/migration tools.
 
 ## 1.0.0
 

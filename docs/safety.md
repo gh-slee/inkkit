@@ -1,5 +1,7 @@
 # Safety model and remaining limits
 
+The following sections describe the migration CLI; the separate configuration editor is covered below.
+
 The original source is read only. No raw cloning or firmware changes occur. Full migration backs up and verifies before ejecting it. The source must be removed and the reader observed empty before a target is inserted. A reused disk number alone is neither proof of a new card nor a permanent source blacklist. New manifests add an optional source volume UUID inside the existing v1 format; legacy manifests remain readable. Targets with any `.crosspoint` entry or a matching sampled source checksum are blocked, even if the metadata was modified.
 
 Read-only discovery deliberately accommodates more readers than destructive operations. Erase requires an explicitly writable, removable USB/SD whole device, a single mounted FAT32/exFAT volume with UUID, known capacity <=2 TiB, and no recognized Time Machine markers. Fixed external disks, ambiguous topology, virtual disks, unknown attributes and unreadable identities fail closed. Device reporting is not hardware attestation: a device can misreport itself as removable. The user must still physically identify the target.
@@ -75,3 +77,27 @@ The workflow is model-independent for compatible CrossInk XTEINK readers; see
 [compatibility](compatibility.md). Model-specific prompts do not change disk policy.
 
 Current evidence: one successful author migration with the internal v1.6 tool; synthetic/macOS CI tests for this public beta. No additional real-card formatting occurred during this refactor. Other physical model/firmware/capacity/card/reader combinations are unverified. This is experimental software, not a production safety certification.
+
+## Current-card configuration editor (development)
+
+Unlike migration's original source, a card explicitly opened in the native editor
+can receive reviewed settings writes. This is a separate adapter with no erase API.
+It requires a user-confirmed CrossInk v1.6.1 model profile, external removable USB/SD
+media, one mounted FAT32/exFAT partition, UUID and rechecked mount/device identities.
+It refuses protected/ambiguous storage, malformed/legacy input and firmware recovery
+files. All original-file backups and locks stay privately on the Mac, on a separate
+device. The unchanged migration erase guard still rejects source-like cards.
+
+Every changed apply backs up and verifies the original before replacing a bounded
+allowlisted config file and reading it back. Restore is exact and blocked by later
+external edits; missing-before files are removed on restore. There is no multi-file
+transaction, atomic external-writer exclusion or hardware/power-loss guarantee.
+Do not hotplug or run competing editors. Quit waits while busy; force quit remains
+possible. Keep a full backup and use Eject. See [architecture](config-architecture.md)
+for interrupted-operation evidence and [configuration usage](macos-preview.md).
+
+Existing password material stays hidden/preserved. Plaintext fallback requires
+explicit consent for every resulting/restored plaintext-containing file. Firmware
+must load and successfully resave that store; boot alone may not do it. Obfuscation
+is not encryption and old backups can retain credentials. All automated tests use
+invented files/mock disks. Selected owner-reported X3 settings acceptance is documented separately; it does not certify every control or model.

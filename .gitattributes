@@ -10,3 +10,8 @@ private/** export-ignore
 **/*.restore-state.json export-ignore
 *.restore.lock export-ignore
 **/*.restore.lock export-ignore
+# Local native builds and visual review evidence are never source exports.
+*.app export-ignore
+*.dmg export-ignore
+.build/** export-ignore
+.impeccable/** export-ignore
