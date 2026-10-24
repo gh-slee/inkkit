@@ -169,13 +169,27 @@ class ConfigTests(unittest.TestCase):
     def test_caller_controlled_temp_directory_is_ignored(self):
         with tempfile.TemporaryDirectory() as external:
             with patch.dict(os.environ, TMPDIR=external), patch.object(tempfile, 'tempdir', external):
-                root = Path(config.create_demo())
                 try:
-                    self.assertEqual(root.parent, config._host_temp())
-                    self.assertEqual(os.listdir(external), [])
-                    self.assertTrue(config.read_settings(root)['synthetic'])
-                finally:
-                    shutil.rmtree(root)
+                    root = Path(config.create_demo())
+                except config.ConfigError as error:
+                    # A restricted OS query may fall back to TMPDIR. Refuse it.
+                    self.assertEqual(error.code, 'unsafe_workspace')
+                else:
+                    try:
+                        self.assertEqual(root.parent, config._host_temp())
+                        self.assertTrue(config.read_settings(root)['synthetic'])
+                    finally:
+                        shutil.rmtree(root)
+                self.assertEqual(os.listdir(external), [])
+
+    def test_system_temp_query_cannot_redirect_demo_to_nested_directory(self):
+        with tempfile.TemporaryDirectory() as external:
+            for raw in (external, str(Path(external) / 'T'), '/private/tmp', None):
+                with self.subTest(raw=raw), patch.object(config.os, 'confstr', return_value=raw):
+                    self.assertCode('unsafe_workspace', config.create_demo)
+            with patch.object(config.os, 'confstr', side_effect=OSError('unavailable')):
+                self.assertCode('unsafe_workspace', config.create_demo)
+            self.assertEqual(os.listdir(external), [])
 
     def test_injected_mount_identity_mismatch_refused(self):
         # A descriptor on a different device cannot become an approved workspace.

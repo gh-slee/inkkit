@@ -109,3 +109,27 @@ self-test also checks typed response decoding and bundled-runtime isolation. The
 file readback from firmware behavior. Actual
 X3 settings acceptance, other-device validation and visual/accessibility QA remain
 separate gates. Existing X3 migration evidence does not validate this editor.
+
+## Complete configuration snapshots and catalogue
+
+`inkkit_snapshots.py` captures the six allowlisted global stores with exact absent/
+empty/raw-byte semantics, versioned manifests and SHA-256. Real snapshots use a
+private global Mac collection; demos remain segregated. Directory operations are
+relative to anchored no-follow descriptors. Collection/media separation and
+private owner/mode checks apply. A per-card lock plus a collection lock serializes
+operations; lock order is always card then collection, while deletion only needs
+the collection lock.
+
+A reviewed full restore compares all current tokens and the immutable source
+fingerprint, retains a complete before snapshot, then journals each file's atomic
+replacement and readback. It is not a cross-file atomic commit. Failed operations
+protect both recovery snapshots and block individual helper Apply until a fresh
+reviewed complete restore resolves them. Deletion validates checksum/inventory and
+never recursively removes arbitrary paths. Legacy single-file recovery formats and
+strict restore behavior remain available with explicit scope labels.
+
+`profiles.describe` exports the implemented source-reviewed firmware, model and
+capability catalogue. The native app uses that metadata for selectors and hardware
+page visibility. The current provider remains the audited v1.6.1 schema/codec;
+new contracts require implemented dispatch and tests, not optimistic version aliases.
+See [support policy](firmware-support.md) and [backup UI](macos-preview.md#complete-configuration-backups).

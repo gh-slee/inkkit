@@ -52,6 +52,8 @@ class HelperTests(unittest.TestCase):
         self.assertTrue(result['synthetic_roundtrip'])
         self.assertEqual(len(result['snapshot']['fields']), 148)
         self.assertEqual(result['differences'][0]['after'], 115)
+        self.assertEqual([token['file'][1] for token in result['identity_tokens']],
+                         [0, 2 ** 63 - 1, 2 ** 63, 2 ** 64 - 1])
 
 
 if __name__ == '__main__':

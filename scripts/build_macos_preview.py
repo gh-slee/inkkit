@@ -22,7 +22,7 @@ import sysconfig
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE_INPUTS = ('inkkit_config.py', 'inkkit_helper.py', 'inkkit_schema.py', 'inkkit_codec.py',
-               'crossink_profile.py', 'inkkit_volume.py', 'disk_safety.py')
+               'crossink_profile.py', 'inkkit_volume.py', 'disk_safety.py', 'inkkit_snapshots.py')
 BUILD_INPUTS = CORE_INPUTS + ('macos/InkKitApp.swift', 'macos/Info.plist',
                              'xteink_sd_migrate.py', 'LICENSE', 'scripts/build_macos_preview.py')
 

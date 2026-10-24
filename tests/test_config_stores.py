@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import shutil
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -54,6 +55,27 @@ class StoreTests(unittest.TestCase):
                     self.assertFalse(self.path(store).exists())
                 else:
                     self.assertEqual(self.path(store).read_bytes(), original)
+
+    def test_empty_dictionary_preserves_full_width_file_identity_without_writes(self):
+        self.path('dictionary').write_bytes(b'')
+        read_at = config._read_at
+
+        def read_with_full_width_inode(directory, name, **kwargs):
+            raw, info = read_at(directory, name, **kwargs)
+            if name == 'dictionary.bin':
+                info = SimpleNamespace(st_dev=info.st_dev, st_ino=2 ** 64 - 1,
+                                       st_mtime_ns=info.st_mtime_ns, st_size=info.st_size)
+            return raw, info
+
+        with patch.object(config, '_read_at', side_effect=read_with_full_width_inode):
+            snapshot = helper.dispatch(dict(protocol=2, action='config.read', root=str(self.root), store='dictionary'))
+            self.assertEqual(snapshot['values']['path'], '')
+            self.assertEqual(snapshot['token']['file'][1], 2 ** 64 - 1)
+            self.assertEqual(snapshot['token']['size'], 0)
+            self.assertEqual(snapshot['token']['sha256'], config.digest(b''))
+            self.assertFalse(self.apply('dictionary', {'path': ''})['changed'])
+            self.assertEqual(config.list_backups(self.root, 'dictionary'), [])
+        self.assertEqual(self.path('dictionary').read_bytes(), b'')
 
     def test_firmware_fallbacks_are_displayed_without_noop_rewrites(self):
         cases = [
@@ -306,6 +328,41 @@ class SchemaTests(unittest.TestCase):
         catalog = {f['key'] for f in schema.BASE_FIELDS} | set(schema.MEMBER_DEFAULTS)
         legacy = {f['key'] for f in schema.BASE_FIELDS if f['group'] == 'legacy'}
         self.assertEqual(catalog - represented, legacy | {'clockDateHasBeenSynced', 'dictionaryFontPointSize'})
+
+    def test_backend_catalogue_and_every_store_report_model_capabilities(self):
+        catalog = helper.dispatch(dict(protocol=2, action='profiles.describe'))
+        self.assertEqual(catalog['unknown_policy'], 'settings_blocked_use_cli_backup_diagnostics')
+        self.assertEqual(len(catalog['profiles']), 1)
+        profile = catalog['profiles'][0]
+        self.assertEqual(profile['firmware'], schema.FIRMWARE_VERSION)
+        self.assertEqual(profile['upstream_commit'], schema.UPSTREAM_COMMIT)
+        self.assertEqual(profile['id'], config.PROFILE)
+        self.assertEqual({m['id'] for m in profile['models']}, set(schema.MODELS))
+        root = config.create_demo()
+        try:
+            for model in profile['models']:
+                self.assertEqual(model['capabilities'], sorted(schema.MODELS[model['id']]))
+                for store in schema.STORES:
+                    snapshot = config.read_settings(root, store, model=model['id'])
+                    self.assertEqual(snapshot['capabilities'], model['capabilities'])
+        finally:
+            shutil.rmtree(root)
+
+    def test_unavailable_frontlight_fields_are_locked_and_preserved(self):
+        doc = {'frontlightBrightness': 65, 'frontlightOn': 1, 'frontlightWarmth': 45}
+        for model in schema.MODELS:
+            fields = schema.main_fields(model, doc)
+            frontlight = [f for f in fields if f['group'] == 'frontlight']
+            self.assertTrue(frontlight)
+            self.assertEqual(all(bool(f.get('readonly')) for f in frontlight), model != 'X4 Pro')
+            if model != 'X4 Pro':
+                for field in frontlight:
+                    current = codec.values(doc, 'settings', fields)[field['key']]
+                    with self.assertRaisesRegex(ValueError, 'capability'):
+                        codec.patch_document(doc, 'settings', fields, {field['key']: 1 if current == 0 else 0})
+            updated, _ = codec.patch_document(doc, 'settings', fields, {'showHiddenFiles': 1})
+            for key, value in doc.items():
+                self.assertEqual(updated[key], value)
 
     def test_capabilities_and_interdependent_controls_fail_closed(self):
         for model in schema.MODELS:

@@ -142,13 +142,14 @@ def summary():
     return (START + '\nDevelopment source includes a native macOS configuration app for **CrossInk v' + schema.FIRMWARE_VERSION + '**.\n'
             'It opens an explicitly selected current SD card and supports **148 main-setting controls**,\n'
             'plus up to **8 Wi-Fi networks, 8 OPDS servers, reading-sync preferences, 24 TTF profiles\n'
-            'and the global dictionary selection**. Model-specific controls are disabled: ' +
+            'and the global dictionary selection**. Controls follow the selected model: ' +
             ', '.join(model + ' ' + str(count) for model, count in counts.items()) +
             ' editable main controls in a fresh profile. Older tilt schemas require firmware migration first.\n\n'
-            'Review, private Mac-side original-file backups, verified apply, guarded restore and safe eject\n'
-            'are implemented. New or retained plaintext passwords require explicit consent for each write.\n'
-            'The app is a **development build with synthetic tests, pending real-card settings acceptance**.\n'
-            'Only the separate X3 migration workflow has physical acceptance evidence.\n'
+            'Review, complete six-store Mac-side backups, verified apply, guarded restore and safe eject\n'
+            'are implemented. Backups supports Backup now, newest-first history, reviewed restore and confirmed deletion.\n'
+            'New or retained plaintext passwords require explicit consent for each write.\n'
+            'The app is a **development build with limited owner-reported X3 settings acceptance**.\n'
+            'Restore, safe eject and tested preferences including Sleep Screen worked on X3; other settings/models remain unvalidated.\n'
             'There is no signed/notarized app download; v1.0.0 remains the migration CLI release.\n\n'
             'See the [configuration reference](docs/configuration-reference.md) for every control and limitation,\n'
             'and [build/use instructions](docs/macos-preview.md). The app does not format cards, flash firmware,\n'
@@ -186,7 +187,7 @@ def reference():
              '## Version and evidence', '',
              'The app implements the global offline configuration contract in CrossInk v' + schema.FIRMWARE_VERSION + ', commit `' + schema.UPSTREAM_COMMIT + '`.',
              'The user selects X3, X4, X4 Classic or X4 Pro and confirms this firmware version. Neither model nor running firmware can be inferred reliably from the SD layout.',
-             'These are source-backed settings, not claims of hardware acceptance. No new settings workflow has physical acceptance yet.',
+             'These are source-backed settings. Limited owner-reported X3 acceptance covers restore, safe eject and tested preferences including Sleep Screen; it is not validation of every control or other models.',
              'See the [validation evidence and X3 acceptance gates](configuration-validation.md). Every main control below links to its pinned upstream definition or serializer.', '',
              'Primary sources:', '',
              '- [Resident settings and serialization](' + base + 'src/CrossPointSettings.cpp), [limits/defaults](' + base + 'src/CrossPointSettings.h), [setting catalog](' + base + 'src/SettingsList.cpp).',

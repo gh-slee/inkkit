@@ -100,4 +100,4 @@ Existing password material stays hidden/preserved. Plaintext fallback requires
 explicit consent for every resulting/restored plaintext-containing file. Firmware
 must load and successfully resave that store; boot alone may not do it. Obfuscation
 is not encryption and old backups can retain credentials. All automated tests use
-invented files/mock disks. No physical settings acceptance is claimed yet.
+invented files/mock disks. Selected owner-reported X3 settings acceptance is documented separately; it does not certify every control or model.

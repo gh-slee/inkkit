@@ -14,7 +14,11 @@ Only named source, documentation, workflow, hook and artwork files can pass.
 `AGENTS.override.md` is explicitly forbidden at every depth, including after a
 force-add or a mistaken public-allowlist change.
 Symlinks, submodules, unresolved merges, binary/oversized text, common credential
-patterns and private home paths are rejected. History checks also inspect commit
+patterns and private home paths are rejected. The only binary exception is the
+exact native JPEG paths and reviewed SHA-256 sets in `APPROVED_IMAGES`; modified
+image bytes fail closed. Review pixels and metadata before adding a hash, retain
+approved historical hashes, and see [screenshot provenance](../assets/macos/README.md).
+This is not a general image or binary-file exception. History checks also inspect commit
 messages and require public GitHub noreply author/committer addresses.
 
 This is a bounded privacy guard, not a comprehensive secret scanner. It cannot

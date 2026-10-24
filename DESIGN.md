@@ -20,14 +20,17 @@ This expands InkKit's existing identity; it is not a replacement brand exercise.
 ## Information and interaction
 
 Sidebar: Overview; Display, Reading, Library, Controls, Frontlight, Status bars,
-Device; Wi-Fi, OPDS, Reading sync, Font rendering, Dictionary; Backups. Search
+Device; Wi-Fi, OPDS, Reading sync, Font rendering, Dictionary; Backups. Frontlight is hidden when the backend snapshot lacks that capability,
+including in search. Firmware/model selectors come from the backend catalogue. Search
 finds main settings across groups. Collections expose active entries and Add/Remove.
 A persistent header identifies the synthetic workspace or user-confirmed card
 model/firmware. The sidebar labels the development build; a status area reports work.
 
 Drafts stay in memory. Cmd+S opens review; Cancel leaves data untouched. Apply
 backs up before writing and verifies by reading back. Restore has its own review
-and refuses files changed since the associated apply. Reload and restore are
+and rechecks every reviewed file before writing. Complete snapshots can restore
+any compatible older state; legacy single-file recovery still requires the
+associated apply hash. Reload and restore are
 disabled while a draft needs attention. Busy states disable conflicting actions.
 
 The review table names the setting, current value and new/restored value. Sleep
@@ -47,3 +50,12 @@ sizes before presenting the preview; source/typechecking alone is not visual QA.
 
 There is no web/CSS detector for this native surface. Physical settings acceptance
 and signing/Gatekeeper checks are separate from a visual review.
+
+## Complete backup interaction
+
+Backups covers all six global stores, with Backup now, Refresh and Show in Finder.
+History is newest first with full timestamps, model and explicit complete/legacy
+scope. Every row exposes Restore and confirmed Delete when eligible. No category
+dropdown remains. A card is needed to capture/restore; local complete backups can
+be listed/deleted without one. Recovery backups stay visibly protected. Full
+restore review covers all files and retains the current complete state first.

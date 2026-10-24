@@ -130,5 +130,5 @@ Use an external SD reader; a running device's USB transfer mode is unverified.
 - Password fields always look empty. Blank keeps the old value; Clear removes it.
   New or retained plaintext requires the review checkbox on every write. It remains
   until the reader loads and successfully resaves that store; boot alone may not.
-- These workflows are development features, pending physical settings acceptance.
+- These workflows are development features with limited owner-reported X3 acceptance. Other settings/models and the newer complete-snapshot workflow remain pending.
   See [build/use and packaging limits](macos-preview.md).

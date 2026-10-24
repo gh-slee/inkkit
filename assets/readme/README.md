@@ -12,6 +12,7 @@ status. They do not claim package downloads, coverage, popularity or hardware
 certification. Badge images may contact their providers when the README is rendered;
 the migration tool has no network dependency.
 
-Only this named artwork file is allowlisted for publication. New assets require
+This named artwork and the separately reviewed [native screenshots](../macos/README.md)
+are allowlisted for publication. New assets require
 explicit source/provenance review and a publication-allowlist update. Never use
 real backup contents, volume names, personal paths or book titles in previews.

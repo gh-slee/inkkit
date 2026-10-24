@@ -12,7 +12,7 @@ SPEC.loader.exec_module(builder)
 class MacBuildTests(unittest.TestCase):
     def test_only_named_sources_are_payload_inputs(self):
         self.assertEqual(builder.CORE_INPUTS, ('inkkit_config.py', 'inkkit_helper.py', 'inkkit_schema.py', 'inkkit_codec.py',
-                                                'crossink_profile.py', 'inkkit_volume.py', 'disk_safety.py'))
+                                                'crossink_profile.py', 'inkkit_volume.py', 'disk_safety.py', 'inkkit_snapshots.py'))
         for path in builder.BUILD_INPUTS:
             self.assertTrue((builder.ROOT / path).is_file())
             self.assertNotIn('backup', path)

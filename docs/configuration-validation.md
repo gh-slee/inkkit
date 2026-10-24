@@ -22,13 +22,31 @@ proof that the file writer is a mock; it needs the appropriate firmware context.
 | Pinned upstream definitions/serialization/load logic | Source audit completed for CrossInk v1.6.1 | Storage keys, IDs, scalar defaults, ranges and conditional loader behavior have identified upstream sources |
 | Python transaction tests | Synthetic fixtures and mocked volume queries | Codec behavior, preservation, backup/recovery, consent and file IO guards |
 | Native build and typed IPC | Local ARM64 developer bundle | Swift/helper request/response compatibility, bundled runtime and synthetic store roundtrips |
-| X3 settings writes and on-reader behavior | **Not performed** | No physical settings acceptance claim yet |
+| X3 settings writes and on-reader behavior | Limited owner-reported acceptance | Restore, safe eject and tested preferences, including Sleep Screen, worked; no exhaustive per-control report |
 | X4, X4 Classic, X4 Pro settings | **Not performed** | Expected capability profiles only; no physical acceptance |
-| Screenshots and visual/accessibility QA | Pending acceptance and permitted capture | No screenshots currently substantiate device operation |
+| Native UI and screenshots | Main pages visually inspected with synthetic X3/Pro demos | Native form/review/backup UI; not device behavior or full accessibility QA |
 
 Existing X3 migration acceptance is documented separately in
 [hardware validation](hardware-validation.md). It does not establish configuration
 editor acceptance. Opening a demo is not a real-card test.
+
+## Owner-reported X3 configuration result: 2026-10-23
+
+The maintainer confirmed the reader About page showed **CrossInk 1.6.1**. In the
+local ARM64 ad-hoc development app, opening the real card, reading the main pages
+and Dictionary, and normal Eject worked after the reported fixes. The maintainer
+then reported successful **Restore** and successful tested preference changes,
+clarifying that the visible on-reader change was **Sleep Screen**.
+
+This is a maintainer-run report, not an agent-operated media test. The exact
+Sleep Screen subfield/value transitions and the full list of other preferences
+were not recorded. Do not mark all 121 editable X3 controls, credentials, fonts,
+dictionaries or X4-family models as physically validated from this report.
+The tested local build's executable SHA-256 was
+`de0a951f099af87faff39006c6da1b053dfec16883a1a2584f882762509436d3`;
+source input hashes remain in its private BuildInfo evidence. It was not a tagged
+GUI release. The later complete-snapshot UI and dynamic catalogue have separate
+synthetic/native checks and still need their own physical acceptance.
 
 ## Source audit: 2026-10-23
 
@@ -72,6 +90,11 @@ The [complete reference](configuration-reference.md) distinguishes current globa
 settings, legacy mirrors, format metadata and excluded runtime/per-book actions.
 No claim of 100% hardware behavior or absence of all defects follows from a source
 audit or a test count.
+
+The same 19 source blobs, upstream main/latest-release pins and SDK board header
+were rechecked on 2026-10-24. The four actual upstream board profiles agree with
+the capability map: only X4 Pro has frontlight/touch hardware; X3, X4 and X4 Classic
+do not. This source check does not add hardware acceptance.
 
 ## X3 acceptance gates
 
@@ -126,4 +149,21 @@ noncredential change and an invented Wi-Fi entry. Include a useful light/dark
 selection, readable scale and window-only capture. Exclude private paths, accounts,
 notifications and real credentials. Do not capture or bypass a Computer Use denial.
 Review the exact image files, metadata and publication allowlist before a separately
-approved image/source push. No screenshots or placeholder images are published now.
+approved image/source push. The [native gallery](screenshots.md) records the current reviewed captures.
+
+
+## Native UI check: 2026-10-24
+
+The current ARM64 development app was inspected through native UI automation with
+fresh synthetic demos. Major sidebar pages, the Wi-Fi/OPDS add/review/Apply flows,
+Backup now, newest-first history and an older complete-snapshot restore worked.
+The restore removed the later Wi-Fi/OPDS entries and retained the pre-restore full
+state. The Delete confirmation was inspected and cancelled. No card was opened,
+written, formatted or ejected for this check; backend deletion/fault guards were
+exercised in synthetic unit tests. X3 had no Frontlight navigation; the X4 Pro demo
+had the expected Frontlight page. These are UI/profile observations, not hardware
+results. The [gallery](screenshots.md) contains actual native captures.
+
+Visual review covered the default 1100-by-780-point dark-mode window and native
+sheets. Minimum-size, light-mode, full keyboard and VoiceOver coverage remain
+pending; no comprehensive accessibility certification is claimed.

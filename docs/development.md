@@ -4,12 +4,14 @@
 
 InkKit is the project name; `xteink_sd_migrate.py` remains the stable migration entry
 point. Development source adds a six-store native current-card configuration app
-and synthetic demos, with physical settings acceptance still pending; see
+and synthetic demos, with selected owner-reported X3 settings acceptance; see
 [macOS preview](macos-preview.md) and [configuration architecture](config-architecture.md).
 
 `xteink_sd_migrate.py` is the stable CLI and contains the single `__version__`
 constant. `disk_safety.py` holds the fail-closed physical-storage/identity policy.
 `restore_recovery.py` manages private local restore journals and per-backup locks.
+`inkkit_snapshots.py` implements complete six-store configuration snapshots, reviewed
+restore journals, deletion protection and legacy backup compatibility.
 Tests use the standard library. `scripts/` contains contributor-only publication
 and preview-build helpers and is not imported by the migration runtime. No venv, pip, Node or Docker
 is required for the migration CLI. Native preview development additionally needs
@@ -20,7 +22,7 @@ git clone https://github.com/gh-slee/inkkit.git
 cd inkkit
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py inkkit_snapshots.py scripts tests
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --help
 ```

@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import SwiftUI
 
-// A developer preview, deliberately limited to helper-created synthetic workspaces.
+// A developer preview for explicit current-card sessions and synthetic workspaces.
 enum SettingValue: Codable, Equatable, Hashable {
     case flag(Bool)
     case number(Int)
@@ -49,10 +49,10 @@ struct FieldDescriptor: Decodable, Identifiable {
     var id: String { key }
 }
 
-struct SnapshotToken: Codable {
-    let root: [Int64]
-    let directory: [Int64]
-    let file: [Int64]?
+struct SnapshotToken: Codable, Equatable {
+    let root: [UInt64]
+    let directory: [UInt64]
+    let file: [UInt64]?
     let sha256: String?
     let mtime_ns: Int64?
     let size: Int
@@ -72,8 +72,30 @@ struct SnapshotToken: Codable {
 
 struct StoreInfo: Decodable, Identifiable { let id: String; let label: String }
 
+struct ReaderProfile: Decodable, Identifiable {
+    let id: String
+    let label: String
+    let capabilities: [String]
+}
+struct FirmwareProfile: Decodable, Identifiable {
+    let id: String
+    let firmware: String
+    let upstream_commit: String
+    let sdk_commit: String
+    let models: [ReaderProfile]
+}
+struct ProfileCatalog: Decodable {
+    let profiles: [FirmwareProfile]
+    let unknown_policy: String
+}
+
+func isConfigurationGroupVisible(_ group: String, capabilities: [String]) -> Bool {
+    group != "frontlight" || capabilities.contains("frontlight")
+}
+
 struct Snapshot: Decodable {
     let model: String
+    let capabilities: [String]
     let store: String
     let stores: [StoreInfo]
     let label: String
@@ -119,7 +141,31 @@ struct BackupEntry: Decodable, Identifiable {
     let id: String
     let created: TimeInterval
     let state: String
+    let kind: String
+    let model: String
+    let firmware: String?
+    let reason: String
+    let store: String?
+    let scope: String?
+    let can_restore: Bool
+    let can_delete: Bool
+    let checksum: String
     var date: Date { Date(timeIntervalSince1970: created) }
+    var scopeLabel: String { kind == "complete" ? "All configurations" : "Legacy single file · \(scope ?? "Configuration")" }
+    var reasonLabel: String {
+        switch reason {
+        case "before_apply": return "Before applying changes"
+        case "before_restore": return "Before restoring configurations"
+        case "legacy": return "Older single-file backup"
+        default: return "Manual backup"
+        }
+    }
+}
+struct SnapshotMutation: Decodable {
+    let changed: Bool?
+    let created: Bool?
+    let deleted: Bool?
+    let backup_id: String?
 }
 
 struct HelperRequest: Encodable {
@@ -134,9 +180,12 @@ struct HelperRequest: Encodable {
     var firmware: String? = nil
     var confirmed: Bool? = nil
     var allow_plaintext: Bool? = nil
+    var expected_stores: [String: SnapshotToken]? = nil
+    var backup_sha256: String? = nil
+    var checksum: String? = nil
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol"
-        case action, root, expected, changes, backup_id, store, model, firmware, confirmed, allow_plaintext
+        case action, root, expected, changes, backup_id, store, model, firmware, confirmed, allow_plaintext, expected_stores, backup_sha256, checksum
     }
 }
 
@@ -157,13 +206,30 @@ struct Envelope<T: Decodable>: Decodable {
     }
 }
 
-struct PlanResult: Decodable { let differences: [Difference]; let requires_plaintext: Bool }
+struct PlanResult: Decodable {
+    let differences: [Difference]
+    let requires_plaintext: Bool
+    let fields: [FieldDescriptor]?
+    let expectedStores: [String: SnapshotToken]?
+    let backup_sha256: String?
+    enum CodingKeys: String, CodingKey {
+        case differences, requires_plaintext, fields, backup_sha256
+        case expectedStores = "expected"
+    }
+}
 struct EjectResult: Decodable { let ejected: Bool }
 struct LocationResult: Decodable { let path: String }
 
 struct DemoResult: Decodable { let root: String; let snapshot: Snapshot }
 struct WriteResult: Decodable { let changed: Bool; let backup_id: String?; let snapshot: Snapshot }
 struct RuntimeCheck: Decodable {
+    let complete_plan: PlanResult
+    let complete_created: SnapshotMutation
+    let complete_restored: SnapshotMutation
+    let complete_deleted: SnapshotMutation
+    let complete_roundtrip: Bool
+    let complete_backups: [BackupEntry]
+    let catalog: ProfileCatalog
     let synthetic_roundtrip: Bool
     let isolated_site: Bool
     let runtime_paths_contained: Bool
@@ -171,6 +237,7 @@ struct RuntimeCheck: Decodable {
     let snapshot: Snapshot
     let differences: [Difference]
     let store_snapshots: [Snapshot]
+    let identity_tokens: [SnapshotToken]
 }
 
 enum Backend {
@@ -238,18 +305,27 @@ final class PreviewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var status = "Open your SD card or explore an example reader."
     @Published var differences: [Difference] = []
+    @Published var reviewFields: [FieldDescriptor] = []
     @Published var showingReview = false
     @Published var requiresPlaintext = false
     @Published var plaintextConsent = false
-    @Published var chosenModel = "X3"
+    @Published var catalog: ProfileCatalog?
+    @Published var chosenProfile = ""
+    @Published var chosenModel = ""
+    var currentProfile: FirmwareProfile? { catalog?.profiles.first { $0.id == chosenProfile } }
+    var availableModels: [ReaderProfile] { currentProfile?.models ?? [] }
+    var selectedFirmware: String { currentProfile?.firmware ?? "" }
     @Published var sessionGeneration = 0
     private var root: String?
     private var reviewedChanges: [String: SettingValue] = [:]
     private var reviewedBackup: String?
+    private var reviewedComplete: BackupEntry?
+    private var reviewedExpected: [String: SnapshotToken]?
+    private var reviewedChecksum: String?
     var store: String { snapshot?.store ?? "settings" }
     var isCard: Bool { snapshot?.synthetic == false }
     var dirty: [String: SettingValue] { draft.filter { snapshot?.values[$0.key] != $0.value } }
-    var isRestoring: Bool { reviewedBackup != nil }
+    var isRestoring: Bool { reviewedBackup != nil || reviewedComplete != nil }
     var validDraft: Bool {
         for field in snapshot?.fields ?? [] where dirty[field.key] != nil {
             if field.kind == "text" || field.kind == "secret" {
@@ -274,12 +350,30 @@ final class PreviewModel: ObservableObject {
         return data
     }
     private func report(_ error: Error) {
-        errorMessage = (error as? HelperFailure)?.message ?? "The operation stopped. Reload and review the retained backups before retrying."
+        if error is DecodingError {
+            errorMessage = "The app could not read the helper response. Reopen the card and review its backups. If this repeats, rebuild InkKit."
+        } else {
+            errorMessage = (error as? HelperFailure)?.message ?? "The operation stopped. Reload and review the retained backups before retrying."
+        }
     }
     private func install(_ snapshot: Snapshot) {
         self.snapshot = snapshot
         self.draft = snapshot.values
         chosenModel = snapshot.model
+    }
+    func loadProfiles() async {
+        guard catalog == nil, !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let fresh: ProfileCatalog = try await request(HelperRequest(action: "profiles.describe"))
+            guard let first = fresh.profiles.first, let reader = first.models.first else {
+                throw HelperFailure(code: "profile", message: "No reviewed configuration profile is bundled. Rebuild InkKit.")
+            }
+            catalog = fresh
+            chosenProfile = first.id
+            chosenModel = reader.id
+        } catch { report(error) }
     }
     func createDemo() async {
         guard !busy, dirty.isEmpty else { return }
@@ -294,18 +388,18 @@ final class PreviewModel: ObservableObject {
             status = "Synthetic demo ready. Changes affect only invented data."
         } catch { report(error) }
     }
-    func openCard(path: String, model: String, confirmed: Bool) async {
+    func openCard(path: String, model: String, firmware: String, confirmed: Bool) async {
         guard !busy, dirty.isEmpty else { return }
         busy = true
         status = "Confirming the selected card and firmware profile…"
         defer { busy = false }
         do {
             let result: DemoResult = try await request(HelperRequest(action: "volume.open", root: path,
-                model: model, firmware: "1.6.1", confirmed: confirmed))
+                model: model, firmware: firmware, confirmed: confirmed))
             sessionGeneration += 1
             root = result.root
             install(result.snapshot)
-            backups = try await request(HelperRequest(action: "backups.list", root: root, store: store))
+            try await fetchBackups()
             status = "Card opened. Model and firmware are user-confirmed; no settings have been written."
         } catch { report(error) }
     }
@@ -317,30 +411,80 @@ final class PreviewModel: ObservableObject {
         do {
             let fresh: Snapshot = try await request(HelperRequest(action: "config.read", root: root, store: store))
             install(fresh)
-            backups = try await request(HelperRequest(action: "backups.list", root: root, store: store))
+            try await fetchBackups()
             status = "Configuration loaded. Edits stay in a draft until reviewed and applied."
         } catch { report(error) }
     }
     func reload() async { await loadStore(store) }
-    func review(backup: BackupEntry? = nil) async {
-        guard !busy, let root, let snapshot else { return }
+    private func fetchBackups() async throws {
+        backups = try await request(HelperRequest(action: "snapshots.list", root: root))
+    }
+    func loadBackups() async {
+        guard !busy, dirty.isEmpty else { return }
         busy = true
         defer { busy = false }
         do {
-            reviewedBackup = backup?.id
+            try await fetchBackups()
+            status = "Local backups, newest first. Complete backups cover all six global configuration stores."
+        } catch { report(error) }
+    }
+    func backupNow() async {
+        guard !busy, dirty.isEmpty, let root else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let result: SnapshotMutation = try await request(HelperRequest(action: "snapshots.create", root: root))
+            guard result.created == true else { throw HelperFailure(code: "snapshot", message: "The complete backup was not confirmed.") }
+            try await fetchBackups()
+            status = "All configurations backed up and checksums verified on this Mac. The card was not changed."
+        } catch { report(error) }
+    }
+    func deleteBackup(_ backup: BackupEntry) async {
+        guard !busy, dirty.isEmpty, backup.can_delete else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let action = backup.kind == "complete" ? "snapshots.delete" : "snapshots.delete_legacy"
+            let result: SnapshotMutation = try await request(HelperRequest(action: action, root: root,
+                backup_id: backup.id, store: backup.store, checksum: backup.checksum))
+            guard result.deleted == true else { throw HelperFailure(code: "snapshot", message: "Backup deletion was not confirmed.") }
+            try await fetchBackups()
+            status = "The selected local backup was deleted."
+        } catch { report(error) }
+    }
+    func review(backup: BackupEntry? = nil) async {
+        guard !busy, dirty.isEmpty || backup == nil, let root, snapshot != nil else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            reviewedComplete = nil
+            reviewedExpected = nil
+            reviewedChecksum = nil
+            reviewedBackup = nil
+            reviewFields = []
             reviewedChanges = dirty
             plaintextConsent = false
             let plan: PlanResult
-            if let backup {
+            if let backup, backup.kind == "complete" {
+                plan = try await request(HelperRequest(action: "snapshots.preview_restore", root: root, backup_id: backup.id))
+                reviewedComplete = backup
+                reviewedExpected = plan.expectedStores
+                reviewedChecksum = plan.backup_sha256
+                reviewFields = plan.fields ?? []
+            } else if let backup {
+                let category = backup.store ?? "settings"
+                let fresh: Snapshot = try await request(HelperRequest(action: "config.read", root: root, store: category))
+                install(fresh)
+                reviewedBackup = backup.id
                 plan = try await request(HelperRequest(action: "config.restore_preview", root: root,
-                    expected: snapshot.token, backup_id: backup.id, store: store))
+                    expected: fresh.token, backup_id: backup.id, store: category))
             } else {
                 plan = try await request(HelperRequest(action: "config.preview", root: root,
-                    expected: snapshot.token, changes: reviewedChanges, store: store))
+                    expected: snapshot!.token, changes: reviewedChanges, store: store))
             }
             differences = plan.differences
             requiresPlaintext = plan.requires_plaintext
-            if differences.isEmpty { status = "Configuration already matches. No files were changed." }
+            if differences.isEmpty { status = "Configurations already match. No files were changed." }
             else { showingReview = true }
         } catch { report(error) }
     }
@@ -348,8 +492,20 @@ final class PreviewModel: ObservableObject {
         guard !busy, !requiresPlaintext || plaintextConsent, let root, let snapshot else { return }
         busy = true
         status = "Backing up, applying and verifying the configuration…"
-        defer { busy = false; showingReview = false; plaintextConsent = false; reviewedChanges = [:] }
+        defer { busy = false; showingReview = false; plaintextConsent = false; reviewedChanges = [:]; reviewedComplete = nil; reviewedExpected = nil; reviewedChecksum = nil }
         do {
+            if let backup = reviewedComplete {
+                guard let expected = reviewedExpected, let checksum = reviewedChecksum else {
+                    throw HelperFailure(code: "snapshot", message: "Review the complete backup again before restoring.")
+                }
+                let result: SnapshotMutation = try await request(HelperRequest(action: "snapshots.restore", root: root,
+                    backup_id: backup.id, allow_plaintext: plaintextConsent, expected_stores: expected, backup_sha256: checksum))
+                let fresh: Snapshot = try await request(HelperRequest(action: "config.read", root: root, store: "settings"))
+                install(fresh)
+                try await fetchBackups()
+                status = result.changed == true ? "All configurations restored and read back. The previous complete state is retained in Backups." : "All configurations already match the backup."
+                return
+            }
             let result: WriteResult
             if let backup = reviewedBackup {
                 result = try await request(HelperRequest(action: "config.restore", root: root,
@@ -359,7 +515,7 @@ final class PreviewModel: ObservableObject {
                     expected: snapshot.token, changes: reviewedChanges, store: store, allow_plaintext: plaintextConsent))
             }
             install(result.snapshot)
-            backups = try await request(HelperRequest(action: "backups.list", root: root, store: store))
+            try await fetchBackups()
             status = reviewedBackup != nil ? "Original configuration restored and read back successfully." :
                 "Configuration backed up, applied and verified. Eject before removing your card."
             if result.snapshot.has_plaintext { status += " Plaintext credentials remain until CrossInk loads and successfully resaves them." }
@@ -378,12 +534,11 @@ final class PreviewModel: ObservableObject {
         } catch { report(error) }
     }
     func revealBackups() async {
-        guard !busy, let root else { return }
-        if !isCard { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: root); return }
+        guard !busy else { return }
         busy = true
         defer { busy = false }
         do {
-            let result: LocationResult = try await request(HelperRequest(action: "volume.backup_location", root: root))
+            let result: LocationResult = try await request(HelperRequest(action: "snapshots.location", root: root))
             NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: result.path)
         } catch { report(error) }
     }
@@ -531,13 +686,13 @@ struct ReviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(model.isRestoring ? "Review restore" : "Review changes").font(.title2.bold())
-            Text(model.isRestoring ? "Restore the original configuration file. Later external edits will block this restore." :
+            Text(model.isRestoring ? "Restore the reviewed backup. All reviewed files are rechecked before writing, and the current complete state is retained." :
                 "The original settings will be backed up before these changes are applied.")
                 .foregroundStyle(.secondary)
             Table(model.differences) {
                 TableColumn("Setting", value: \.label)
-                TableColumn("Current") { Text($0.formatted($0.before, fields: model.snapshot?.fields ?? [])) }
-                TableColumn(model.isRestoring ? "Restored" : "New") { Text($0.formatted($0.after, fields: model.snapshot?.fields ?? [])) }
+                TableColumn("Current") { Text($0.formatted($0.before, fields: model.reviewFields.isEmpty ? (model.snapshot?.fields ?? []) : model.reviewFields)) }
+                TableColumn(model.isRestoring ? "Restored" : "New") { Text($0.formatted($0.after, fields: model.reviewFields.isEmpty ? (model.snapshot?.fields ?? []) : model.reviewFields)) }
             }
             .frame(minHeight: 150, maxHeight: 280)
             if model.requiresPlaintext {
@@ -564,6 +719,62 @@ struct ReviewSheet: View {
     }
 }
 
+
+struct BackupsPage: View {
+    @ObservedObject var model: PreviewModel
+    @State private var deletion: BackupEntry?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Your complete reader configurations.").font(.title2.bold())
+            Text("Back up all six global configuration stores together. Books, font/dictionary assets and per-book data are separate. Backups stay on this Mac and may contain credentials.")
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Backup now", systemImage: "externaldrive.badge.plus") { Task { await model.backupNow() } }
+                    .buttonStyle(.borderedProminent).disabled(model.snapshot == nil || model.busy || !model.dirty.isEmpty)
+                Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.loadBackups() } }.disabled(model.busy)
+                Spacer()
+                Button("Show in Finder", systemImage: "folder") { Task { await model.revealBackups() } }
+                    .disabled(model.busy || model.backups.isEmpty)
+            }
+            if model.snapshot == nil {
+                Text("Open a compatible card to create or restore a backup. Local backups can be viewed and deleted without a card.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            if model.backups.isEmpty {
+                ContentUnavailableView("No local configuration backups", systemImage: "clock.arrow.circlepath",
+                    description: Text("Open your card and choose Backup now. Applying a change also saves a complete backup first."))
+            } else {
+                List(model.backups) { backup in
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            if backup.state == "unavailable" { Text("Incomplete or invalid backup") }
+                            else { Text(backup.date, format: .dateTime.year().month().day().hour().minute().second()).fontWeight(.medium) }
+                            Text("\(backup.scopeLabel) · \(backup.model) · \(backup.reasonLabel)")
+                                .font(.callout).foregroundStyle(.secondary)
+                            if !backup.can_delete && backup.state != "unavailable" {
+                                Text("Protected recovery backup").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Button("Restore") { Task { await model.review(backup: backup) } }
+                            .disabled(model.busy || !model.dirty.isEmpty || !backup.can_restore)
+                        Button("Delete", role: .destructive) { deletion = backup }
+                            .disabled(model.busy || !model.dirty.isEmpty || !backup.can_delete)
+                    }.padding(.vertical, 8)
+                }
+            }
+        }.padding(24)
+        .alert("Delete local backup?", isPresented: Binding(get: { deletion != nil }, set: { if !$0 { deletion = nil } })) {
+            Button("Cancel", role: .cancel) { deletion = nil }
+            Button("Delete backup", role: .destructive) {
+                if let backup = deletion { deletion = nil; Task { await model.deleteBackup(backup) } }
+            }
+        } message: {
+            Text("This permanently removes the selected local backup. Your SD card is not changed. Recovery backups stay protected until recovery is completed.")
+        }
+    }
+}
+
 struct CardProfileSheet: View {
     @ObservedObject var model: PreviewModel
     let path: String
@@ -574,23 +785,38 @@ struct CardProfileSheet: View {
             Text("Confirm your reader").font(.title2.bold())
             Text("Card files cannot reliably identify the model or installed firmware. Choose the reader this card belongs to.")
                 .foregroundStyle(.secondary)
-            Picker("XTEINK model", selection: $model.chosenModel) {
-                ForEach(["X3", "X4", "X4 Classic", "X4 Pro"], id: \.self) { Text($0).tag($0) }
+            Picker("Reviewed firmware", selection: $model.chosenProfile) {
+                ForEach(model.catalog?.profiles ?? []) { Text("CrossInk v\($0.firmware)").tag($0.id) }
+            }.onChange(of: model.chosenProfile) {
+                confirmed = false
+                model.chosenModel = model.availableModels.first?.id ?? ""
             }
-            Toggle("I confirm this reader is running CrossInk v1.6.1.", isOn: $confirmed)
-            Text("Settings writes are implemented but have not completed X3 hardware acceptance. Opening reads configuration only. Applying changes first backs up the affected file on this Mac.")
+            Picker("XTEINK model", selection: $model.chosenModel) {
+                ForEach(model.availableModels) { Text($0.label).tag($0.id) }
+            }
+            Toggle("I confirm this reader is running CrossInk v\(model.selectedFirmware).", isOn: $confirmed)
+            Text("Unlisted version or device? Settings editing stays blocked. The separate migration CLI can back up or diagnose a layout-compatible card.")
+                .font(.callout).foregroundStyle(.secondary)
+            Text("Selected X3 settings have owner-reported acceptance; other settings and models still need validation. Opening reads configuration only. Applying changes first backs up all six global configurations on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack {
                 Spacer()
                 Button("Cancel", action: dismiss).keyboardShortcut(.cancelAction)
                 Button("Open card") {
                     let selected = model.chosenModel
+                    let firmware = model.selectedFirmware
+                    let agreed = confirmed
                     dismiss()
-                    Task { await model.openCard(path: path, model: selected, confirmed: confirmed) }
+                    Task { await model.openCard(path: path, model: selected, firmware: firmware, confirmed: agreed) }
                 }.buttonStyle(.borderedProminent).disabled(!confirmed).keyboardShortcut(.defaultAction)
             }
         }.padding(24).frame(width: 520)
     }
+}
+
+struct CardSelection: Identifiable {
+    let url: URL
+    let id = UUID()
 }
 
 struct PreviewWindow: View {
@@ -599,11 +825,11 @@ struct PreviewWindow: View {
     @State private var pendingSelection: PreviewSection?
     @State private var discardToNavigate = false
     @State private var resetDemo = false
-    @State private var cardPath: String?
-    @State private var showingCardProfile = false
+    @State private var cardSelection: CardSelection?
     @State private var search = ""
 
     func chooseCard() {
+        guard !model.busy, model.currentProfile != nil else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
@@ -611,21 +837,21 @@ struct PreviewWindow: View {
         panel.prompt = "Choose SD card"
         panel.message = "Choose the mounted SD card itself. No settings will be changed by opening it."
         if panel.runModal() == .OK, let url = panel.url {
-            cardPath = url.path
-            showingCardProfile = true
+            cardSelection = CardSelection(url: url)
         }
     }
     func navigate(_ next: PreviewSection?) {
         if !model.dirty.isEmpty { pendingSelection = next; discardToNavigate = true; return }
         selection = next
         search = ""
+        if next == .backups { Task { await model.loadBackups() } }
         if let next, next != .overview, next != .backups, model.snapshot != nil, model.store != next.store {
             Task { await model.loadStore(next.store) }
         }
     }
     var body: some View {
         NavigationSplitView {
-            List(PreviewSection.allCases, selection: Binding(get: { selection }, set: { navigate($0) })) { section in
+            List(PreviewSection.allCases.filter { isConfigurationGroupVisible($0.group, capabilities: model.snapshot?.capabilities ?? []) }, selection: Binding(get: { selection }, set: { navigate($0) })) { section in
                 Label(section.rawValue, systemImage: section.icon).tag(section)
             }
             .disabled(model.busy)
@@ -673,10 +899,11 @@ struct PreviewWindow: View {
             }
         }
         .frame(minWidth: 980, minHeight: 660)
+        .task { await model.loadProfiles() }
         .onChange(of: model.sessionGeneration) { selection = .overview; search = "" }
         .sheet(isPresented: $model.showingReview) { ReviewSheet(model: model) }
-        .sheet(isPresented: $showingCardProfile) {
-            if let path = cardPath { CardProfileSheet(model: model, path: path, dismiss: { showingCardProfile = false }) }
+        .sheet(item: $cardSelection) { selection in
+            CardProfileSheet(model: model, path: selection.url.path, dismiss: { cardSelection = nil })
         }
         .alert("Operation stopped", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
@@ -692,11 +919,13 @@ struct PreviewWindow: View {
     var fields: [FieldDescriptor] {
         (model.snapshot?.fields ?? []).filter { field in
             let matches = search.isEmpty || field.label.localizedCaseInsensitiveContains(search) || field.key.localizedCaseInsensitiveContains(search)
-            return matches && (model.store != "settings" || !search.isEmpty || field.group == (selection?.group ?? "device"))
+            return isConfigurationGroupVisible(field.group, capabilities: model.snapshot?.capabilities ?? []) && matches && (model.store != "settings" || !search.isEmpty || field.group == (selection?.group ?? "device"))
         }
     }
     @ViewBuilder var content: some View {
-        if model.snapshot == nil || selection == .overview {
+        if selection == .backups {
+            BackupsPage(model: model)
+        } else if model.snapshot == nil || selection == .overview {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Image(systemName: "externaldrive.badge.checkmark").font(.system(size: 38)).foregroundStyle(.tint).accessibilityHidden(true)
@@ -712,7 +941,7 @@ struct PreviewWindow: View {
                         }.disabled(model.busy || !model.dirty.isEmpty)
                     }
                     Picker("Demo model", selection: $model.chosenModel) {
-                        ForEach(["X3", "X4", "X4 Classic", "X4 Pro"], id: \.self) { Text($0).tag($0) }
+                        ForEach(model.availableModels) { Text($0.label).tag($0.id) }
                     }.frame(maxWidth: 350).disabled(model.busy)
                     Divider()
                     VStack(alignment: .leading, spacing: 12) {
@@ -721,38 +950,12 @@ struct PreviewWindow: View {
                         Label("Wi-Fi, OPDS, reading sync, dictionary and font rendering", systemImage: "network")
                         Label("Original-file backups, verified apply and guarded restore", systemImage: "clock.arrow.circlepath")
                     }
-                    Text("CrossInk v1.6.1 · X3, X4, X4 Classic and X4 Pro. Controls follow the selected model's expected capabilities. New settings writes still need hardware acceptance; existing X3 migration testing does not validate them.")
+                    Text("Reviewed CrossInk versions and reader models come from the bundled compatibility catalogue. Controls follow the selected model's capabilities; Frontlight appears only for a model with that hardware. Selected X3 settings have owner-reported acceptance; other settings and models remain unvalidated.")
                         .font(.callout).foregroundStyle(.secondary)
                     Text("Card editing never formats a disk. Backups stay on this Mac. New passwords require explicit plaintext-handoff consent; stored passwords are kept hidden.")
                         .font(.callout).foregroundStyle(.secondary)
                 }.padding(32).frame(maxWidth: 740, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             }
-        } else if selection == .backups {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Original files, kept before every apply.").font(.title2.bold())
-                Picker("Configuration", selection: Binding(get: { model.store }, set: { value in Task { await model.loadStore(value) } })) {
-                    ForEach(model.snapshot?.stores ?? []) { Text($0.label).tag($0.id) }
-                }.disabled(model.busy)
-                Text("Restore is available only while the file matches the selected backup. Backups can contain credentials and are not encrypted.")
-                    .foregroundStyle(.secondary)
-                if model.backups.isEmpty {
-                    ContentUnavailableView("No backups in this category", systemImage: "clock.arrow.circlepath", description: Text("Apply a configuration change to create a verified original-file backup."))
-                } else {
-                    List(model.backups) { backup in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                if backup.state == "unavailable" { Text("Incomplete or invalid backup") }
-                                else { Text(backup.date, format: .dateTime.month().day().hour().minute().second()) }
-                                Text(backup.state.capitalized).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Review restore") { Task { await model.review(backup: backup) } }
-                                .disabled(model.busy || !model.dirty.isEmpty || backup.state == "unavailable")
-                        }.padding(.vertical, 5)
-                    }
-                }
-                Button("Show backups in Finder", systemImage: "folder") { Task { await model.revealBackups() } }.disabled(model.busy)
-            }.padding(24)
         } else if model.store != selection?.store {
             ContentUnavailableView("Configuration not loaded", systemImage: "externaldrive.badge.questionmark", description: Text("Reconnect the card and select this category again."))
         } else {
@@ -832,15 +1035,40 @@ struct InkKitLauncher {
                 let data = try Backend.execute(Data(), selfTest: true)
                 let envelope = try JSONDecoder().decode(Envelope<RuntimeCheck>.self, from: data)
                 guard envelope.protocolVersion == 2, envelope.ok, let result = envelope.data,
-                      result.synthetic_roundtrip, result.isolated_site, result.runtime_paths_contained,
+                      result.synthetic_roundtrip, result.complete_roundtrip,
+                      result.complete_backups.contains(where: { $0.kind == "complete" }),
+                      result.complete_plan.expectedStores?.count == 6,
+                      result.complete_plan.fields?.isEmpty == false,
+                      result.complete_created.created == true,
+                      result.complete_restored.changed == true,
+                      result.complete_deleted.deleted == true, result.isolated_site, result.runtime_paths_contained,
                       result.snapshot.synthetic, result.snapshot.fields.count >= 148,
                       result.store_snapshots.count == 5,
+                      result.identity_tokens.count == 4,
+                      result.identity_tokens.last?.file?.last == UInt64.max,
                       result.store_snapshots.first(where: { $0.store == "ttf" })?.values["profiles.0.stemDarkening"] == .flag(true),
                       result.store_snapshots.first(where: { $0.store == "wifi" })?.values["credentials.0.password"] == .text(""),
                       result.differences.count == 1,
                       result.differences.first?.after == .number(115),
                       URL(fileURLWithPath: result.prefix).resolvingSymlinksInPath().path == Backend.runtime.resolvingSymlinksInPath().path else {
                     throw HelperFailure(code: "runtime", message: "The self-contained runtime check failed.")
+                }
+                for profile in result.catalog.profiles {
+                    for reader in profile.models {
+                        guard isConfigurationGroupVisible("frontlight", capabilities: reader.capabilities) == (reader.id == "X4 Pro") else {
+                            throw HelperFailure(code: "profile", message: "The model visibility check failed.")
+                        }
+                    }
+                }
+                guard result.snapshot.capabilities == result.catalog.profiles.first?.models.first(where: { $0.id == result.snapshot.model })?.capabilities,
+                      result.store_snapshots.allSatisfy({ $0.capabilities == result.snapshot.capabilities }) else {
+                    throw HelperFailure(code: "profile", message: "The snapshot capability check failed.")
+                }
+                for token in result.identity_tokens {
+                    let encoded = try JSONEncoder().encode(token)
+                    guard try JSONDecoder().decode(SnapshotToken.self, from: encoded) == token else {
+                        throw HelperFailure(code: "identity", message: "The full-width file identity roundtrip failed.")
+                    }
                 }
                 FileHandle.standardOutput.write(data)
             } catch {

@@ -22,8 +22,8 @@ import tempfile
 import time
 import uuid
 
-PROFILE = 'crossink-1.6.1-preview'
-UPSTREAM_COMMIT = '9914146eeae7b46b300f475a16c32426fc02ec1f'
+PROFILE = schema.PROFILE_ID
+UPSTREAM_COMMIT = schema.UPSTREAM_COMMIT
 MAX_BYTES = 64 * 1024
 SETTINGS_FILE = 'crossink-settings.json'
 FORMAT = 'inkkit-synthetic-workspace-v1'
@@ -136,17 +136,23 @@ def _identity(info):
 
 
 def _host_temp():
-    # Darwin's user temp directory comes from the OS, not caller-controlled TMPDIR.
     # _CS_DARWIN_USER_TEMP_DIR is 65537 in the macOS SDK's unistd.h.
+    # Restricted environments may return TMPDIR instead of the OS user directory.
+    # Accept only the canonical user-temp layout, never an arbitrary nested path.
     if sys.platform != 'darwin':
         raise ConfigError('platform', 'This configuration preview requires macOS.')
-    raw = os.confstr(65537)
-    if not raw:
-        raise ConfigError('unsafe_workspace', 'The system temporary directory is unavailable.')
-    temp = Path(raw).resolve()
-    if (not temp.is_relative_to(Path('/private/var/folders'))
-            or temp.stat().st_dev != Path('/private/tmp').stat().st_dev):
-        raise ConfigError('unsafe_workspace', 'The system temporary directory is not on the expected host storage.')
+    try:
+        raw = os.confstr(65537)
+        if not raw:
+            raise ValueError('missing')
+        temp = Path(raw).resolve()
+        parts = temp.relative_to('/private/var/folders').parts
+        if (len(parts) != 3 or len(parts[0]) != 2 or parts[-1] != 'T'
+                or temp.stat().st_uid != os.getuid()
+                or temp.stat().st_dev != Path('/private/tmp').stat().st_dev):
+            raise ValueError('location')
+    except (OSError, ValueError):
+        raise ConfigError('unsafe_workspace', 'The system temporary directory is unavailable or is not on the expected host storage.') from None
     return temp
 
 
@@ -441,7 +447,7 @@ def read_settings(root, store='settings', model=None):
         _, doc, token = workspace.snapshot()
         fields = [field.public() for field in workspace.fields(doc)]
         return dict(profile=PROFILE, firmware=schema.FIRMWARE_VERSION, synthetic=workspace.synthetic,
-                    model=workspace.model, store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
+                    model=workspace.model, capabilities=sorted(schema.MODELS[workspace.model]), store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
                     fields=fields, values=codec.values(doc, store, fields), token=token,
                     has_plaintext=_has_plaintext(doc), label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
 

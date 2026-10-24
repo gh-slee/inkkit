@@ -18,6 +18,30 @@ STORES = {
     'ttf': ('ttf-rendering.json', 'Font rendering'),
     'dictionary': ('dictionary.bin', 'Dictionary'),
 }
+
+PROFILE_ID = 'crossink-' + FIRMWARE_VERSION + '-preview'
+SDK_COMMIT = '699370183fa3a0e33c9cb83a36f701bbb6022095'
+
+
+def profile_catalog():
+    """Implemented, source-reviewed contracts; never infer future compatibility.
+
+    New storage contracts require a schema/codec provider and its tests, not merely
+    a version alias. The native UI consumes this metadata rather than its own lists.
+    """
+    return dict(profiles=[dict(id=PROFILE_ID, firmware=FIRMWARE_VERSION,
+                              upstream_commit=UPSTREAM_COMMIT, sdk_commit=SDK_COMMIT,
+                              models=[dict(id=model, label=model, capabilities=sorted(capabilities))
+                                      for model, capabilities in MODELS.items()])],
+                unknown_policy='settings_blocked_use_cli_backup_diagnostics')
+
+
+def supports_configuration(model, firmware):
+    # This bundled engine implements the current audited provider only. A future
+    # provider must be wired to its own schema/codec before exposing its catalogue.
+    return type(model) is str and type(firmware) is str and model in MODELS and firmware == FIRMWARE_VERSION
+
+
 STATUS_ITEMS = ('Empty', 'Clock', 'Battery', 'Time left in book', 'Time left in chapter',
                 'Chapter page count', 'Stable page number', 'Book progress percentage',
                 'Book title', 'Chapter title', 'Date')

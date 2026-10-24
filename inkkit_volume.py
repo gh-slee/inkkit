@@ -3,6 +3,7 @@
 Device queries and ejection are disabled in automated tests unless mocked.
 All host state uses private, descriptor-checked directories outside the card.
 """
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -60,8 +61,13 @@ def _inspect(root, model):
             or not root.is_dir() or not _is_mount(root)):
         raise _error('mount', 'Select the mounted SD card itself, directly under Volumes.')
     pinfo = _query('info', root)
-    if pinfo.get('MountPoint') != str(root) or pinfo.get('Mounted') is not True:
-        raise _error('mount', 'The selected mount does not match macOS volume information.')
+    if pinfo.get('MountPoint') != str(root):
+        raise _error('mount', 'The selected mount does not match macOS volume information. Reopen the mounted SD card itself.')
+    # Some diskutil plist responses omit Mounted even for mounted FAT volumes.
+    # A real mount boundary above plus an exact MountPoint remains required.
+    # If the optional flag is supplied, reject false or malformed evidence.
+    if 'Mounted' in pinfo and pinfo['Mounted'] is not True:
+        raise _error('mount', 'macOS did not confirm this volume as mounted. Reconnect the SD card and reopen it.')
     whole = pinfo.get('ParentWholeDisk')
     if not isinstance(whole, str) or not re.fullmatch(r'disk\d+', whole):
         raise _error('identity', 'The physical card identity is unavailable.')
@@ -129,7 +135,7 @@ def _session_directory(create=False):
 
 
 def open_card(root, model, firmware, confirmed):
-    if firmware != schema.FIRMWARE_VERSION or confirmed is not True:
+    if not schema.supports_configuration(model, firmware) or confirmed is not True:
         raise _error('profile', 'Confirm the reader model and the supported CrossInk firmware version before opening the card.')
     context = _inspect(root, model)
     from inkkit_config import _Workspace, _document, _json_bytes, _open_directory, _read_at, _write_new
@@ -176,7 +182,7 @@ def session_context(reference):
         saved = parse_object(_read_at(fd, token + '.json')[0])
     finally:
         os.close(fd)
-    if saved.get('firmware') != schema.FIRMWARE_VERSION or saved.get('model') not in schema.MODELS:
+    if not schema.supports_configuration(saved.get('model'), saved.get('firmware')):
         raise _error('profile', 'This card session has an unsupported firmware profile.')
     current = _inspect(saved.get('root', ''), saved['model'])
     if current['live'] != saved.get('live') or current['identity'] != saved.get('identity'):
@@ -207,10 +213,19 @@ def _eject_command(disk):
 
 def eject_card(reference):
     from inkkit_config import _Workspace
-    with _Workspace(reference) as workspace, workspace.lock():
-        if workspace.synthetic:
-            raise _error('session', 'Synthetic workspaces are not physical cards.')
-        _eject_command(workspace.context['live']['disk'])
+    with ExitStack() as host_lock:
+        with _Workspace(reference) as workspace:
+            if workspace.synthetic:
+                raise _error('session', 'Synthetic workspaces are not physical cards.')
+            # The lock owns an independent Mac-side descriptor. Keep it while
+            # closing ALL workspace handles, including those on the SD card.
+            host_lock.enter_context(workspace.lock())
+            expected = workspace.context
+        # Recheck through metadata queries, without reopening card directories.
+        current = session_context(reference)
+        if current['live'] != expected['live'] or current['identity'] != expected['identity']:
+            raise _error('card_changed', 'The card or its mount changed. Reopen it before ejecting.')
+        _eject_command(current['live']['disk'])
     return dict(ejected=True)
 
 

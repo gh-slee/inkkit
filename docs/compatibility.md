@@ -33,7 +33,7 @@ filter controls; neither model nor firmware is auto-detected. Only removable
 single-partition FAT32/exFAT cards meeting identity/host-backup guards are opened.
 CrossPoint and other firmware versions retain the opaque migration workflow but
 are not configuration-editor profiles. Configuration writes have synthetic tests
-and no physical acceptance on any model; old X3 migration evidence is separate.
+and limited owner-reported X3 configuration acceptance; other settings/models and the new complete-snapshot workflow remain pending. X3 migration evidence is separate.
 The stable script, legacy backups, names/default directory and recovery journals
 are unchanged. No signed/notarized Mac app release is available.
 

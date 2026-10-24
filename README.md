@@ -56,12 +56,13 @@ branding; the InkKit branding is in development source until a later release.
 Development source includes a native macOS configuration app for **CrossInk v1.6.1**.
 It opens an explicitly selected current SD card and supports **148 main-setting controls**,
 plus up to **8 Wi-Fi networks, 8 OPDS servers, reading-sync preferences, 24 TTF profiles
-and the global dictionary selection**. Model-specific controls are disabled: X3 121, X4 112, X4 Classic 122, X4 Pro 132 editable main controls in a fresh profile. Older tilt schemas require firmware migration first.
+and the global dictionary selection**. Controls follow the selected model: X3 121, X4 112, X4 Classic 122, X4 Pro 132 editable main controls in a fresh profile. Older tilt schemas require firmware migration first.
 
-Review, private Mac-side original-file backups, verified apply, guarded restore and safe eject
-are implemented. New or retained plaintext passwords require explicit consent for each write.
-The app is a **development build with synthetic tests, pending real-card settings acceptance**.
-Only the separate X3 migration workflow has physical acceptance evidence.
+Review, complete six-store Mac-side backups, verified apply, guarded restore and safe eject
+are implemented. Backups supports Backup now, newest-first history, reviewed restore and confirmed deletion.
+New or retained plaintext passwords require explicit consent for each write.
+The app is a **development build with limited owner-reported X3 settings acceptance**.
+Restore, safe eject and tested preferences including Sleep Screen worked on X3; other settings/models remain unvalidated.
 There is no signed/notarized app download; v1.0.0 remains the migration CLI release.
 
 See the [configuration reference](docs/configuration-reference.md) for every control and limitation,
@@ -69,17 +70,61 @@ and [build/use instructions](docs/macos-preview.md). The app does not format car
 execute sync/network operations or install font/dictionary assets.
 <!-- configuration-summary:end -->
 
+### Ongoing firmware and device support
+
+InkKit aims to track future CrossInk releases and XTEINK readers. The native app
+loads reviewed firmware/model choices and hardware capabilities from its bundled
+backend catalogue. The currently audited contract is **CrossInk v1.6.1** for X3,
+X4, X4 Classic and X4 Pro. Unsupported hardware pages are hidden where appropriate:
+X3, X4 and X4 Classic have no Frontlight page; X4 Pro has it.
+
+New releases/devices need an upstream settings/capability review, schema/codec
+changes where needed and compatibility tests before configuration writes are
+enabled. Unknown versions are not silently treated as the nearest supported
+version. The opaque migration CLI remains available for backups/diagnostics when
+its independent card/layout checks pass. See the [support policy](docs/firmware-support.md).
+
+### Complete configuration backups
+
+**Backups → Backup now** captures all six global configuration stores together.
+Local history is sorted newest first, including timestamp, model and backup scope.
+Restore reviews the current state and preserves a complete pre-restore backup;
+Delete asks for confirmation. Older compatible complete snapshots can be restored
+after fresh review, even after later changes. Existing single-file backups remain
+available with a **Legacy single file** label; they keep their original strict
+restore checks and are not presented as complete snapshots.
+
+Each native Apply also saves a complete snapshot before its existing single-file
+transaction. Backups stay in private Mac-side storage and may contain credentials.
+They contain settings, not books, installed font/dictionary assets or per-book
+state. The existing full-card ZIP workflow and its repo-local backup location are
+unchanged. See [backup/recovery details](docs/macos-preview.md#complete-configuration-backups).
+
 ### What has actually been verified
 
 The controls use CrossInk's real storage formats. **Synthetic demo** is invented
 example data; **Open SD card** uses real, reviewed configuration-file writes.
 File readback proves saved bytes, not that firmware loaded them or a connection
-succeeded. No settings have yet been accepted on a physical reader.
+succeeded. The maintainer has reported successful X3 Restore, safe eject and tested
+preference changes, including Sleep Screen behavior on the reader. The tested
+preferences were not fully itemized; this does not certify every control or model.
 
 See [source-audit evidence and X3 acceptance gates](docs/configuration-validation.md).
-README screenshots will follow actual X3 settings acceptance and visual review;
-published captures will show the real native app with clearly labeled synthetic
-example data. No mockup images are presented as working-device evidence.
+
+### macOS app screenshots
+
+Native app with synthetic example data. These captures document the development
+UI; hardware evidence is recorded separately above.
+
+| Overview | Display |
+| --- | --- |
+| ![InkKit overview with an X3 synthetic demo](assets/macos/overview.jpg) | ![CrossInk display and sleep settings](assets/macos/display.jpg) |
+| Reading | Complete configuration backups |
+| ![Model-aware reading settings](assets/macos/reading.jpg) | ![Timestamped complete configuration backup history](assets/macos/backups.jpg) |
+
+See the [complete native app gallery](docs/screenshots.md) for Library, Controls,
+Status bars, Device, Wi-Fi, OPDS, reading sync, fonts, dictionary, review and the
+X4 Pro-only Frontlight page. All shown names/URLs are invented examples.
 
 
 ## Quick start
@@ -267,7 +312,8 @@ The project icon is original SVG artwork; [asset provenance](assets/readme/READM
 originally released as XTEINK SD Migrator. InkKit development source keeps the same
 1.0.0 version constant while the rebrand is unreleased; startup/`--version` show the
 name of the checked-out source. The existing tag is unchanged. The native configuration app is unreleased
-development source, with physical settings acceptance pending.
+development source, with limited owner-reported X3 settings acceptance and broader
+configuration validation pending.
 [CHANGELOG.md](CHANGELOG.md) separates unreleased changes
 from published snapshots.
 
@@ -277,7 +323,7 @@ from published snapshots.
 | Model-independent operation | Synthetic hidden-data roundtrips for X3, X4, X4 Classic, X4 Pro and an invented future model label |
 | Published release validation | [v1.0.0 exact-commit CI](https://github.com/gh-slee/inkkit/actions/runs/39847722957) on `ef927dc`: 166 synthetic tests per macOS/Python 3.9 and 3.12 job, compilation, CLI smoke checks and source-publication audits; later development commits require their own checks |
 | Real hardware | [X3 backup, restore/readback, safe eject and owner-confirmed reader acceptance](docs/hardware-validation.md#reviewed-x3-result-2026-10-22) on revision `505c1c5`; other physical combinations pending |
-| Configuration evidence | [Pinned-source audit, synthetic/IPC checks and pending X3 settings acceptance](docs/configuration-validation.md); expected X4-family capabilities remain physically untested |
+| Configuration evidence | [Pinned-source audit, synthetic/IPC checks and limited X3 settings acceptance](docs/configuration-validation.md); expected X4-family capabilities remain physically untested |
 | Safety boundaries | Conservative target gate may reject legitimate readers; hotplug races cannot be completely eliminated |
 
 No real card is formatted by tests or CI. Additional hardware reports are welcome through the [hardware report template](https://github.com/gh-slee/inkkit/issues/new?template=hardware_report.md), following the [acceptance criteria](docs/hardware-validation.md). Partial and read-only reports are useful when clearly labeled; automated success is not proof that a particular physical device has been migrated.
@@ -310,7 +356,7 @@ For help, [open an issue](https://github.com/gh-slee/inkkit/issues/new/choose) w
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py inkkit_snapshots.py scripts tests
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged
 python3 scripts/check_publication.py --all-history
