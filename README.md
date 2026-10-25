@@ -5,50 +5,83 @@
 <h1 align="center">InkKit</h1>
 
 <p align="center">
-  <strong>Tools for your CrossInk reader.</strong><br>
-  Verified SD backups and migration. Native CrossInk settings app in development.
+  <strong>A native macOS app for your CrossInk reader.</strong><br>
+  Edit settings, keep complete configuration backups and restore earlier snapshots.
 </p>
 
 <p align="center">
   <a href="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml"><img src="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status on main"></a>
-  <a href="#tech-stack"><img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.9 or newer"></a>
-  <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS CLI"></a>
-  <a href="#tech-stack"><img src="https://img.shields.io/badge/Runtime_dependencies-None-208C8A?style=flat-square" alt="Standard library only"></a>
+  <a href="#native-settings-app-development"><img src="https://img.shields.io/badge/App-Development-CC8A24?style=flat-square" alt="Native app: development build"></a>
+  <a href="#tech-stack"><img src="https://img.shields.io/badge/UI-SwiftUI-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="SwiftUI and AppKit interface"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="Native macOS app and migration CLI"></a>
+  <a href="#tech-stack"><img src="https://img.shields.io/badge/CLI_dependencies-None-208C8A?style=flat-square" alt="Migration CLI: Python standard library only"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-208C8A?style=flat-square" alt="MIT license"></a>
-  <a href="#project-status"><img src="https://img.shields.io/badge/Version-1.0.0-208C8A?style=flat-square" alt="Version 1.0.0 source; see release status"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/CLI_release-v1.0.0-208C8A?style=flat-square" alt="Published migration CLI v1.0.0; app unreleased"></a>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="#macos-app-screenshots">Screenshots</a> ·
   <a href="#supported-devices">Devices</a> ·
-  <a href="#how-it-works">How it works</a> ·
+  <a href="#migration-cli">Migration CLI</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
-**InkKit is an open-source macOS toolkit for CrossInk-compatible XTEINK readers.** Its current CLI backs up, migrates and verifies microSD cards, preserving ordinary and hidden files, the reader’s directory layout and saved state with SHA-256 checks. No installation, account, network connection or third-party Python package is needed to run it.
+**InkKit is an open-source native macOS app for managing CrossInk settings on your XTEINK reader's current SD card.** Adjust display and reading preferences, manage Wi-Fi/OPDS/sync configuration, and back up or restore complete configurations from a SwiftUI interface. The existing Python CLI handles full-card backup and migration separately.
 
-Formerly **XTEINK SD Migrator**. The repository is now `gh-slee/inkkit`; the stable
-`xteink_sd_migrate.py` entry point, existing backup names/format and repo-local backup
-directory remain compatible. The published `v1.0.0` source retains the original
-branding; the InkKit branding is in development source until a later release.
+**App status: development build.** Build it locally from `main`; there is no public
+app installer or signed/notarized download yet. The published **v1.0.0 is the
+migration CLI release**, and does not include the app.
 
-**Hardware validation:** the implementation is model-independent. A maintainer-reported X3 migration and reader acceptance passed on the recorded APFS-fix revision; see the [configuration and limits](docs/hardware-validation.md#reviewed-x3-result-2026-10-22). X4 and other compatible models remain in scope but have not been physically validated and are not v1.0.0 release requirements. This project is not affiliated with XTEINK, CrossInk, or CrossPoint.
+![InkKit native macOS app showing an X3 synthetic example](assets/macos/overview.jpg)
 
-> **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
+*Actual native app with synthetic example data. [Browse the app gallery](docs/screenshots.md).*
 
-## Available now
-
-| | What you can do |
+| In the macOS app | What you can do |
 | --- | --- |
-| 📚 **Keep your reading data** | Preserve books, hidden `.crosspoint/` data, fonts, bookmarks, reading history and progress, including unfamiliar hidden reader directories. |
-| 🗄️ **Back up before erasing** | Create a timestamped ZIP, paired manifest and independent checksum, then read back every archived file before ejecting the source. |
-| 🔍 **Inspect first** | Verify an existing backup without a card, or run a read-only target preflight before migration. |
-| 🔄 **Recover an interruption** | Inspect a journal-bound target and resume missing bytes without formatting or replacing existing data. |
-| 🛡️ **Confirm the physical target** | Check removable-media identity, source fingerprints, protected storage, physical mount ownership and capacity before the guarded erase. |
-| 💾 **Choose the card format** | Use capacity-based FAT32/exFAT + MBR defaults, explicit overrides or the source filesystem policy. |
-| ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
-| 🔒 **Keep backups local** | Store backups beside the script in a Git-ignored folder; publication hooks and CI add a separate source-only guard. |
+| **Adjust reader settings** | Edit display, reading, library, controls, status bars and device preferences, with model-aware controls. |
+| **Manage connection settings** | Add, edit or remove Wi-Fi networks and OPDS servers, and edit reading-sync preferences. This configures the card; it does not test network connections. |
+| **Set font and dictionary preferences** | Configure font rendering and select assets already installed on the card. |
+| **Keep complete configuration backups** | Back up all six global stores, browse timestamped local history, restore an older compatible snapshot or confirm deletion of a local backup. |
+| **Review before writing** | Inspect changes, preserve the original state, verify saved bytes and eject the card safely. New or retained plaintext credentials need explicit consent for each write. |
+
+The audited app profile covers **CrossInk v1.6.1** on **X3, X4, X4 Classic and X4 Pro**.
+Only X3 has limited owner-reported physical acceptance; other models remain
+untested. [Support policy](docs/firmware-support.md) · [Validation evidence](docs/configuration-validation.md).
+This project is not affiliated with XTEINK, CrossInk or CrossPoint.
+
+## Quick start
+
+### Build and open the macOS app
+
+Requirements: **macOS 14+**, Command Line Tools with Swift and a macOS 14+ SDK,
+and the **python.org CPython 3.12 framework**. This local development build targets
+the build host's CPU; Intel and clean-Mac distribution checks remain pending.
+
+```bash
+git clone https://github.com/gh-slee/inkkit.git
+cd inkkit
+python3 scripts/build_macos_preview.py --output work/macos-config
+open -n 'work/macos-config/InkKit Preview.app'
+```
+
+Run the builder with the python.org CPython 3.12 interpreter; if `python3` selects
+another installation, use that interpreter's path instead. Choose a fresh output
+directory for each build: the builder preserves existing app bundles. The app
+bundles its runtime, so launching the built app does not require Python on PATH.
+See [complete build instructions and packaging limits](docs/macos-preview.md).
+
+1. Choose **Create synthetic demo** to explore the app without a card.
+2. For your reader, keep a separate verified full-card backup, shut down the reader
+   and insert its card into a separate SD reader. Choose **Open SD card**, select
+   the mounted root and confirm the actual model and firmware version.
+3. Use **Backups → Backup now** before editing. Change one preference, review it
+   and choose **Back up & apply**. After **Eject** succeeds, return the card to the
+   shut-down reader and verify the result there.
+
+The app edits settings on the current card; it never formats a disk. To replace
+an entire SD card, use the [migration CLI](#migration-cli).
 
 ## Native settings app (development)
 
@@ -116,20 +149,43 @@ See [source-audit evidence and X3 acceptance gates](docs/configuration-validatio
 Native app with synthetic example data. These captures document the development
 UI; hardware evidence is recorded separately above.
 
-| Overview | Display |
+| Display | Reading |
 | --- | --- |
-| ![InkKit overview with an X3 synthetic demo](assets/macos/overview.jpg) | ![CrossInk display and sleep settings](assets/macos/display.jpg) |
-| Reading | Complete configuration backups |
-| ![Model-aware reading settings](assets/macos/reading.jpg) | ![Timestamped complete configuration backup history](assets/macos/backups.jpg) |
+| ![CrossInk display and sleep settings](assets/macos/display.jpg) | ![Model-aware reading settings](assets/macos/reading.jpg) |
+| Wi-Fi | Complete configuration backups |
+| ![Wi-Fi configuration with synthetic example networks](assets/macos/wifi.jpg) | ![Timestamped complete configuration backup history](assets/macos/backups.jpg) |
 
 See the [complete native app gallery](docs/screenshots.md) for Library, Controls,
 Status bars, Device, Wi-Fi, OPDS, reading sync, fonts, dictionary, review and the
 X4 Pro-only Frontlight page. All shown names/URLs are invented examples.
 
 
-## Quick start
+## Migration CLI
 
-Requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
+The existing Python CLI backs up, migrates and verifies entire microSD cards,
+preserving books, ordinary and hidden files, the reader's directory layout and
+saved state with SHA-256 checks. It runs with Python's standard library, without
+an account, network connection or third-party Python package. Its stable entry
+point and legacy backup format are unchanged.
+
+> **A full migration or normal `--restore` permanently erases the entire selected target disk after both confirmations.** Keep the original card disconnected and intact until you have tested the replacement in your reader. Read the target information and both erase confirmations carefully. `--resume` never formats; read-only commands are described below.
+
+### Migration features
+
+| | What you can do |
+| --- | --- |
+| 📚 **Keep your reading data** | Preserve books, hidden `.crosspoint/` data, fonts, bookmarks, reading history and progress, including unfamiliar hidden reader directories. |
+| 🗄️ **Back up before erasing** | Create a timestamped ZIP, paired manifest and independent checksum, then read back every archived file before ejecting the source. |
+| 🔍 **Inspect first** | Verify an existing backup without a card, or run a read-only target preflight before migration. |
+| 🔄 **Recover an interruption** | Inspect a journal-bound target and resume missing bytes without formatting or replacing existing data. |
+| 🛡️ **Confirm the physical target** | Check removable-media identity, source fingerprints, protected storage, physical mount ownership and capacity before the guarded erase. |
+| 💾 **Choose the card format** | Use capacity-based FAT32/exFAT + MBR defaults, explicit overrides or the source filesystem policy. |
+| ✅ **Verify the replacement** | Re-read restored bytes and compare SHA-256, file counts and directory trees. |
+| 🔒 **Keep backups local** | Store backups beside the script in a Git-ignored folder; publication hooks and CI add a separate source-only guard. |
+
+### Run the published CLI
+
+CLI requirements: **macOS**, **Python 3.9+**, an SD card reader, the original CrossInk/CrossPoint card, and a separate replacement card. Git is needed only to clone or contribute. Do not use your only copy of important data as a test card.
 
 The commands below select the published [v1.0.0 source](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0),
 released under the former XTEINK SD Migrator name. Its banner uses the original
@@ -180,7 +236,7 @@ Restore verifies the existing ZIP and manifest, then follows the same destructiv
 
 </details>
 
-### Verify, preview, and recover
+### Verify, preview, and recover with the CLI
 
 | Command | Behavior |
 | --- | --- |
@@ -223,7 +279,9 @@ InkKit's current supported workflow.
 
 “Supported workflow” describes implementation scope, not a hardware certification. The data cannot conclusively identify an XTEINK model, and firmware support does not guarantee that a reader/card passes macOS disk-safety checks. The intended use is **replacing the card for a reader**, not translating settings or display caches between different models or firmware builds. See the [compatibility guide](docs/compatibility.md).
 
-## How it works
+<a id="how-it-works"></a>
+
+## How migration works
 
 ```mermaid
 flowchart TD
@@ -255,7 +313,12 @@ The target must normally be at least as large as the source in actual bytes. Car
 
 ## Backups and privacy
 
-New backups go to **`xteink-x3-backup/` beside `xteink_sd_migrate.py`**, independent of your Terminal’s current directory. The historical `x3` spelling is a compatibility name, **not a model restriction**. Existing backups stay where they are.
+**App configuration snapshots** stay in private Mac-side storage under
+`~/Library/Application Support/InkKit/ConfigurationBackups/`. They cover six global
+settings stores, not books or assets; they may contain credentials and are not
+encrypted. See [complete configuration backups](#complete-configuration-backups).
+
+**Full-card CLI backups** go to **`xteink-x3-backup/` beside `xteink_sd_migrate.py`**, independent of your Terminal’s current directory. The historical `x3` spelling is a compatibility name, **not a model restriction**. Existing backups stay where they are.
 
 | File | Purpose |
 | --- | --- |
@@ -289,8 +352,8 @@ Other hidden data, including `.crosspoint/`, `.fonts/` and unfamiliar reader dir
 
 | Layer | Technology |
 | --- | --- |
-| Interface | Direct Python 3.9+ CLI; no package installation |
-| Native app | SwiftUI + AppKit; Swift 5 language mode, local macOS 14+ build for the build host CPU |
+| macOS interface | SwiftUI + AppKit; Swift 5 language mode, local macOS 14+ build for the build host CPU |
+| Migration CLI | Direct Python 3.9+ script; no package installation |
 | Configuration core | Python 3.9+ standard library; six pinned CrossInk stores, model-aware schema and validation |
 | App/helper boundary | Versioned JSON over stdin/stdout pipes; no local web server or runtime AI dependency |
 | App runtime | Bundled CPython 3.12 development runtime; runs without Python on PATH |
@@ -307,6 +370,11 @@ runtime. Neither workflow uses Docker, a web frontend, telemetry or an AI servic
 The project icon is original SVG artwork; [asset provenance](assets/readme/README.md).
 
 ## Project status
+
+Formerly **XTEINK SD Migrator**. The repository is now `gh-slee/inkkit`; the stable
+`xteink_sd_migrate.py` entry point, existing backup names/format and repo-local backup
+directory remain compatible. The published `v1.0.0` source retains the original
+branding; the InkKit branding is in development source until a later release.
 
 **Published migration release: [v1.0.0](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0)**,
 originally released as XTEINK SD Migrator. InkKit development source keeps the same
@@ -335,12 +403,16 @@ source. X4 and other compatible models retain file-level support with physical
 validation pending; their reports were not required for v1.0.0. The
 [v1 compatibility commitment](docs/compatibility.md#v1-compatibility-commitment) and
 [release checks](docs/publishing.md#manual-stable-release-preparation) continue to
-apply to future versions. Planned settings features need their own validation.
+apply to future versions. Native settings features have separate configuration
+acceptance gates; passing migration checks does not validate them.
 
 ## Documentation
 
 | Guide | Read it for… |
 | --- | --- |
+| [macOS app](docs/macos-preview.md) · [Screenshots](docs/screenshots.md) | Build and use the development app; browse the native interface |
+| [Configuration reference](docs/configuration-reference.md) · [Validation](docs/configuration-validation.md) | Supported controls, pinned source evidence and hardware acceptance limits |
+| [Firmware support](docs/firmware-support.md) · [Architecture](docs/config-architecture.md) | Reviewed version/device catalogue and configuration transaction design |
 | [Compatibility](docs/compatibility.md) | Device scope, firmware/layout assumptions and validation evidence |
 | [Hardware validation](docs/hardware-validation.md) | Sanitized reports, acceptance criteria and evidence needed for stable release review |
 | [Safety](docs/safety.md) | Erase guards, integrity checks and remaining limits |
