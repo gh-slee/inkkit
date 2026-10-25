@@ -76,7 +76,11 @@ Source changes detected during scanning/reading abort backup. SHA-256 checks con
 The workflow is model-independent for compatible CrossInk XTEINK readers; see
 [compatibility](compatibility.md). Model-specific prompts do not change disk policy.
 
-Current evidence: one successful author migration with the internal v1.6 tool; synthetic/macOS CI tests for this public beta. No additional real-card formatting occurred during this refactor. Other physical model/firmware/capacity/card/reader combinations are unverified. This is experimental software, not a production safety certification.
+Migration evidence and exact revisions are recorded in the
+[hardware report](hardware-validation.md#reviewed-x3-result-2026-10-22).
+The published v1.0.0 is a migration CLI release, not a native app release.
+Implementation scope and automated checks do not certify every physical
+model/firmware/card/reader combination or guarantee power-loss safety.
 
 ## Current-card configuration editor (development)
 
@@ -88,10 +92,16 @@ It refuses protected/ambiguous storage, malformed/legacy input and firmware reco
 files. All original-file backups and locks stay privately on the Mac, on a separate
 device. The unchanged migration erase guard still rejects source-like cards.
 
-Every changed apply backs up and verifies the original before replacing a bounded
-allowlisted config file and reading it back. Restore is exact and blocked by later
-external edits; missing-before files are removed on restore. There is no multi-file
-transaction, atomic external-writer exclusion or hardware/power-loss guarantee.
+Every changed native Apply captures a complete six-store snapshot before its
+per-file transaction, which verifies the original and reads back the replacement.
+Complete restore can select any compatible older snapshot after fresh review of
+all current tokens and the backup checksum; it preserves the complete current
+state before writing. Legacy single-file restore still requires its recorded
+current-file hash. Restoring an absent store removes that file. Each file is
+replaced/read back separately: there is no atomic multi-file transaction,
+external-writer exclusion or hardware/power-loss guarantee. Interrupted complete
+restore retains its journal and protects both snapshots; a reviewed full restore
+must resolve recovery before individual Apply continues.
 Do not hotplug or run competing editors. Quit waits while busy; force quit remains
 possible. Keep a full backup and use Eject. See [architecture](config-architecture.md)
 for interrupted-operation evidence and [configuration usage](macos-preview.md).

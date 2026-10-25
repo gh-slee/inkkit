@@ -1,7 +1,8 @@
 # Agent-assisted development
 
-Agents are optional development tools. The migration CLI runs as reusable Python
-code without Codex, an LLM, a skill runtime or network access. Start with the real
+Agents are optional development tools. The native app and migration CLI run
+without Codex, an LLM, a skill runtime or network access; the app uses its bundled
+Python helper and the CLI runs directly with Python. Start with the real
 repository, working tree, tests and [shared instructions](../AGENTS.md).
 
 ## Instruction discovery
@@ -49,9 +50,10 @@ replace stale notes instead of appending transcripts. Public clones must work
 without private instructions.
 
 Run appropriate tests from [development](development.md) and report their actual
-scope. No lint/type/package build is configured. Setup-only work never requires a
-real card migration. Keep existing work and hooks intact; installation already
-preserves a custom hooksPath. Language and owner publication boundaries belong in
+scope. macOS CI includes Python checks and native Swift typechecking; the separate
+local preview builder packages an ad-hoc app. No standalone linter is configured.
+Setup-only work never requires a real card migration. Keep existing work and hooks
+intact; installation already preserves a custom hooksPath. Language and owner publication boundaries belong in
 private guidance, while generic contribution/privacy rules remain public.
 
 ## Worktrees and fresh copies

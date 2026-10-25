@@ -120,7 +120,11 @@ After changing field/storage/model metadata, run
 and full reference. CI runs the same generator in check mode and rejects drift.
 This prevents internal documentation drift, not unreviewed upstream changes:
 a new firmware release still needs a pinned source/schema audit and new fixtures.
-Update behavior/usage/security docs alongside implementation. New profile tests
+Update behavior/usage/security docs alongside implementation. When product scope
+changes, also review PRODUCT, contributor instructions and GitHub's About/topics:
+repository metadata is stored separately and does not change when a README PR
+merges. Keep historical release pages accurate for their tagged code rather than
+assigning unreleased app features to a CLI release. New profile tests
 exercise every editable main control and every enum choice per model, synthetic
 store CRUD/recovery, credential redaction/consent and mocked card-session guards.
 

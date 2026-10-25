@@ -2,7 +2,8 @@
 
 ## Platform
 
-Native macOS SwiftUI preview alongside the existing macOS Python migration CLI.
+Native macOS SwiftUI/AppKit configuration app in development, alongside the
+separately released macOS Python migration CLI.
 
 ## Users and purpose
 
@@ -13,8 +14,11 @@ verified writes and recovery for the current card.
 
 ## Stack
 
-SwiftUI with a bundled CPython helper and a standard-library Python core. The
-development build edits explicit current-card sessions and synthetic demos; selected X3 settings have owner-reported acceptance; broader coverage is pending.
+SwiftUI/AppKit with versioned JSON over stdin/stdout pipes to a bundled CPython
+helper and a standard-library Python core. The local builder targets macOS 14+
+and the host CPU using a python.org CPython 3.12 runtime. The app edits explicit
+current-card sessions and synthetic demos; it does not start a web server or
+perform network login/sync operations.
 The direct migration CLI remains dependency-free and retains its stable filename.
 
 ## Current capabilities and constraints
@@ -24,6 +28,10 @@ The direct migration CLI remains dependency-free and retains its stable filename
   reference for actual model availability and excluded runtime actions/assets.
 - Real-card opening requires explicit model/firmware selection, confirmed removable
   media and Mac-side recovery storage. Apply/restore use review and verified IO.
+- Complete six-store snapshots support Backup now, newest-first timestamped
+  history, reviewed restore of any compatible older snapshot and confirmed local
+  deletion. Apply/restore retain the prior state. Legacy single-file records keep
+  their original scope and restore guards; books/assets are not config snapshots.
 - Existing credentials stay opaque; new/retained plaintext needs consent per write.
   The firmware must load and successfully resave it; no network operations run here.
 - Intended XTEINK scope is X3, X4, X4 Classic and X4 Pro. X3 migration and selected X3 settings
@@ -62,9 +70,11 @@ profiles and compatibility tests. Firmware/model/capability choices come from th
 bundled catalogue; do not promise unknown future storage contracts work unchanged.
 See `docs/firmware-support.md`.
 
-## Open decisions
+## Distribution boundary
 
-X3 settings acceptance, other-device testing, production runtime sourcing,
-signing/notarization, Intel/clean-Mac validation, final minimum macOS and updater.
-The local spike targets macOS 14+ and the build host's CPU; this is not a public
-support commitment. No release or automatic publisher is authorized by this preview.
+The app remains a local ad-hoc-signed development build. Production runtime
+sourcing, Developer ID signing/notarization, supported architectures/macOS versions
+and an updater are separate distribution work. The local macOS 14+ host-CPU target
+is not a public support commitment. There is no app installer/download in v1.0.0;
+that published release contains the migration CLI. Releases and automatic
+publication are separate maintainer decisions.

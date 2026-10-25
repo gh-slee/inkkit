@@ -95,9 +95,10 @@ CrossInk must load and successfully resave the relevant Wi-Fi/OPDS/sync store; b
 alone does not guarantee removal of plaintext. No account login/connectivity test
 is performed by the app. See [credential behavior](configuration-reference.md#preservation-and-dependent-behavior).
 
-On an interrupted operation, stop, reconnect/reopen and inspect Backups. External
-changes can block restore to avoid overwriting later data. Preserve all recovery
-evidence; do not force a write or format the card. See [safety](safety.md) and
+On an interrupted operation, stop, reconnect/reopen and inspect Backups. Complete
+snapshots need a fresh restore review of current state; changes after review
+invalidate its tokens. Legacy single-file restore also checks its recorded result
+hash. Preserve all recovery evidence; do not force a write or format the card. See [safety](safety.md) and
 [architecture/recovery limits](config-architecture.md).
 
 ## Complete configuration backups

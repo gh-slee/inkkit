@@ -3,16 +3,18 @@ name: Bug report
 about: Report a failure using sanitized details only
 ---
 
-For a working configuration or partial hardware result, use the hardware validation
-report instead. Use this template for failures, including failed hardware migrations.
+Use this template for native app or migration CLI failures. For a working or
+partial migration result, use the migration hardware report instead.
 
-- Tool version (`--version`):
-- macOS and Python versions:
+- Workflow (native settings app or migration CLI):
+- App version/build or CLI `--version`; source tag/commit if known:
+- macOS version and Mac architecture:
+- Python version (CLI or app-builder issues; the built app bundles Python):
 - XTEINK model and firmware name/build:
-- Source and target raw capacities:
+- Card capacity; source/target capacities for migration:
 - Reader make/type (USB or built-in):
-- Filesystem policy / selected target format:
-- Evidence type (read-only detection, synthetic test, or completed physical migration):
+- Card filesystem; selected filesystem policy for migration:
+- Operation (open/read, configuration review/apply/backup/restore/eject, or CLI mode):
 - Stage of failure and steps to reproduce:
 - Sanitized error text:
 - Was anything erased? Is the original card/verified backup intact?

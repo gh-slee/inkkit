@@ -1,18 +1,23 @@
 # Contributing
 
-Contributions are welcome for safe disk detection, archive/integrity regressions,
-compatibility reports and clear documentation. Discuss changes to erasure policy,
-backup schemas or firmware assumptions before implementation.
+Contributions are welcome for native macOS settings workflows, reviewed CrossInk
+profiles, configuration backup/recovery, safe migration, compatibility and docs.
+Discuss changes to erasure policy, backup schemas or firmware assumptions before
+implementation.
 
 ## Development setup
 
-Clone the repository and use Python 3.9+ on macOS. No package install or virtual
-environment is required; there are no third-party runtime or test dependencies.
+Clone the repository on macOS. The Python core, migration CLI and synthetic tests
+use Python 3.9+ and the standard library, without pip packages or a required venv.
+The native app uses SwiftUI/AppKit. Its local builder additionally requires Swift
+and a macOS 14+ SDK plus the python.org CPython 3.12 framework; see
+[app build/use instructions](docs/macos-preview.md). A built app bundles its runtime.
 
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py inkkit_snapshots.py scripts tests
+python3 scripts/check_configuration_docs.py
 ```
 
 For agent discovery, private overrides and fresh sessions, see
@@ -24,11 +29,12 @@ silently replace an existing custom path. See [development](docs/development.md)
 ## Change expectations
 
 - Follow [AGENTS.md](AGENTS.md); keep canonical documentation and code in English.
-- Preserve the stable filename, single version source, stdlib-only operation,
+- Preserve the stable filename, single version source, standard-library Python core,
   existing migration behavior and legacy manifests/backups.
-- Treat reader data as opaque bytes; keep the workflow model-independent.
-  X4 support does not establish a tested X4 migration. Update
-  [compatibility evidence](docs/compatibility.md) only with actual results.
+- Keep migration model-independent and preserve opaque reader files. Configuration
+  editing must use reviewed schema/codec/model contracts, preserve unknown data and
+  keep credentials redacted in UI responses. Device scope is not hardware
+  certification. Update [compatibility evidence](docs/compatibility.md) only with actual results.
 - Use minimal invented fixtures and temporary paths. Never read private backups
   to create tests or format real SD cards during automated validation.
 - Safety changes need meaningful negative and failure-injection tests. Keep disk
