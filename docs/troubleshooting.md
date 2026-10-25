@@ -124,9 +124,11 @@ Use an external SD reader; a running device's USB transfer mode is unverified.
   maps and unique swipe actions may need multiple draft changes in one review.
 - Existing firmware `.tmp`/`.bak`, legacy schemas or invalid saved types require
   firmware recovery/migration first. Preserve evidence and a full backup.
-- After apply/restore failure, stop and review private Mac-side Backups. External
-  later edits can intentionally block restore. Do not erase or delete records to
-  force it. See [transaction limitations](config-architecture.md).
+- After apply/restore failure, stop and review private Mac-side Backups. Complete
+  snapshots require a fresh review and recheck of current tokens; legacy single-file
+  restore remains bound to its recorded result hash. Preserve recovery journals
+  and protected snapshots; do not erase or delete records to force a write. See
+  [transaction limitations](config-architecture.md).
 - Password fields always look empty. Blank keeps the old value; Clear removes it.
   New or retained plaintext requires the review checkbox on every write. It remains
   until the reader loads and successfully resaves that store; boot alone may not.

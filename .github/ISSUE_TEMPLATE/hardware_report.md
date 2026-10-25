@@ -1,6 +1,6 @@
 ---
-name: Hardware validation report
-about: Share a working or partial configuration using sanitized text only
+name: Migration hardware report
+about: Share a working or partial card migration using sanitized text only
 ---
 
 Read the [acceptance criteria](https://github.com/gh-slee/inkkit/blob/main/docs/hardware-validation.md).

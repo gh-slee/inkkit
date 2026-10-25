@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Present the native macOS app first in the README, with build/use instructions,
+  existing native screenshots, device scope and SwiftUI/AppKit/Python stack.
+  Align contributor, security and architecture docs with complete configuration
+  backups, current helper actions and the separate published migration CLI.
+
 - Add actual native app screenshots with synthetic example data, current UI
   validation notes and exact-path/hash image publication checks.
 
@@ -63,10 +68,10 @@
   Keep other compatible XTEINK models conditional on the shared layout and guards.
   CrossInk firmware support for Seeed Studio Sticky is not an InkKit support claim.
 
-## 1.0.0
+## [1.0.0](https://github.com/gh-slee/inkkit/releases/tag/v1.0.0) — 2026-10-22
 
-Release preparation; publication is tracked separately on the
-[releases page](https://github.com/gh-slee/inkkit/releases).
+Published migration CLI release, originally named XTEINK SD Migrator. Native macOS
+app changes belong to Unreleased above; this tag does not include the app.
 
 - Prepare the first stable version with startup and `--version` reporting 1.0.0.
   Keep the stable script filename, standard-library runtime, existing CLI behavior,

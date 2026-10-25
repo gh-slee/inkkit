@@ -11,7 +11,9 @@ CrossInk v1.6.1 field/storage/model contract and primary source links.
 - `inkkit_schema.py`: model capabilities and typed forms for six stores.
 - `inkkit_codec.py`: pure validation, explicit patches, shortcut ownership and
   credential-redacted differences. No device, network or filesystem operations.
-- `inkkit_config.py`: descriptor-based transactions, private backups and recovery.
+- `inkkit_config.py`: descriptor-based per-store transactions, legacy backups and recovery.
+- `inkkit_snapshots.py`: complete six-store backup history, reviewed full restore,
+  per-file recovery journals and protected deletion.
 - `inkkit_volume.py`: explicit current-card sessions, read-only macOS identity
   queries, private host storage and targeted safe ejection. No formatting API.
 - `inkkit_helper.py`: bounded, allowlisted one-request-per-process IPC.
@@ -36,10 +38,11 @@ part of identity because applying settings changes it. Some media lack unique
 hardware serials; cloned identifiers and hotplug races cannot be eliminated.
 Never swap cards during an operation. Reopen after any disconnect or external edit.
 
-Real-card recovery data lives under the OS account's home (not an inherited HOME):
-`~/Library/Application Support/InkKit/Backups/<card-profile identity>/`.
-Session references live in sibling `Sessions/`. Host directories are owned by the
-current user, mode 0700 and opened without following symlinks. Backups must be on
+Real-card host state lives under the OS account's home (not an inherited HOME):
+complete snapshots use `~/Library/Application Support/InkKit/ConfigurationBackups/`,
+legacy per-file recovery records use `Backups/<card-profile identity>/`, and
+session references use the sibling `Sessions/` directory. Host directories are
+owned by the current user, mode 0700 and opened without following symlinks. Backups must be on
 a different device from the selected card. The CLI's script-adjacent backup default
 and legacy migration manifests/journals are unchanged.
 
@@ -70,7 +73,8 @@ fsynced and verified on the Mac. The new card file is written through an exclusi
 temporary file, rechecked, atomically replaced, fsynced and read back. Only then is
 the recovery record marked written. Failures retain evidence and stop the workflow.
 
-Backups use `inkkit-config-backup-v1`, separate from migration backups. Per-store
+Legacy per-file backups use `inkkit-config-backup-v1`, separate from migration
+backups and the complete-snapshot format described below. Per-store
 folders contain random-ID directories with `before.bin` and `record.json` hashes,
 card/profile identity, before-file existence and prepared/written/restoring/restored
 state. Restore requires the current file to equal the recorded result or original;
@@ -87,7 +91,9 @@ just to bypass a rejection.
 
 ## Credentials and IPC
 
-Saved plaintext/obfuscated passwords never appear in snapshots or differences.
+Saved plaintext/obfuscated passwords never appear in UI/helper settings state or
+review differences. Private file backups and complete configuration snapshots
+retain the original stored credential bytes; redaction is not backup encryption.
 Blank input keeps the existing material; explicit Clear removes it. New passwords
 use CrossInk's plaintext fallback, only after a fresh review checkbox for each write.
 Any resulting or restored file containing plaintext requires that consent. Firmware
@@ -95,17 +101,26 @@ must load and successfully resave the store to replace plaintext with MAC-depend
 obfuscation; boot alone is insufficient. Obfuscation is not encryption. No device
 MAC guessing, decryption, network login or keychain integration is implemented.
 
-Protocol 2 supports `demo.create`, `volume.open`, `volume.eject`,
-`volume.backup_location`, `config.read`, `config.preview`, `config.apply`,
-`backups.list`, `config.restore_preview` and `config.restore`. Unknown request
-fields/actions/versions are rejected. Inputs are <=64 KiB, native responses <=1 MiB,
-and operations time out after 120 seconds. The helper has fixed public-safe errors;
+Protocol 2 has the following allowlisted actions:
+
+- Catalogue/demo: `profiles.describe`, `demo.create`.
+- Card sessions: `volume.open`, `volume.eject`, `volume.backup_location`.
+- Per-store editing/legacy recovery: `config.read`, `config.preview`, `config.apply`,
+  `backups.list`, `config.restore_preview`, `config.restore`.
+- Complete snapshots: `snapshots.list`, `snapshots.location`, `snapshots.create`,
+  `snapshots.preview_restore`, `snapshots.restore`, `snapshots.delete`,
+  `snapshots.delete_legacy`.
+
+Unknown request fields/actions/versions are rejected. Inputs are <=64 KiB, native
+responses <=1 MiB, and operations time out after 120 seconds. The helper has fixed public-safe errors;
 raw contents, diskutil output, secrets and tracebacks are not logged. Requests use
 pipes, never shell arguments. The native launcher clears runtime overrides and
 uses its purpose-specific bundled Python runtime.
 
-`--self-test` runs only a synthetic transaction and removes its own fixture. Native
-self-test also checks typed response decoding and bundled-runtime isolation. The [source audit and acceptance gates](configuration-validation.md) distinguish
+`--self-test` uses disposable synthetic fixtures for all six stores, complete
+snapshot create/restore/delete, catalogue transport and unsigned filesystem IDs;
+it removes its own workspace. The native self-test also checks typed response
+decoding and bundled-runtime isolation. The [source audit and acceptance gates](configuration-validation.md) distinguish
 file readback from firmware behavior. Actual
 X3 settings acceptance, other-device validation and visual/accessibility QA remain
 separate gates. Existing X3 migration evidence does not validate this editor.

@@ -247,7 +247,7 @@ All paths below are inside `.crosspoint/`. `*.enabled` and `*.clearPassword` are
 | `clockHasBeenSynced`, `clockDateHasBeenSynced` | The upstream-exposed sync flag is editable on RTC models, but does not set the hardware clock. The date-sync observation is preserved, not a user control. |
 | `tiltPageTurnDirectionSchema`, `readerStatusBars.version` | Format metadata. New direction edits use schema 2. Existing older direction schemas block that control until firmware migration. |
 | `dictionaryFontPointSize` | In-memory C++ member serialized as dictionaryFontSize; not an extra JSON key. |
-| `password_obf`, `lastConnectedSsid`, `cfgVersion` | Credential/status/format metadata; preserved or updated only by the explicit rules above. Never expose saved password material through snapshots or diffs. |
+| `password_obf`, `lastConnectedSsid`, `cfgVersion` | Credential/status/format metadata; preserved or updated only by the explicit rules above. Saved password material is redacted from UI/helper state and diffs; private file backups retain original credential bytes. |
 
 ## Outside offline global configuration
 

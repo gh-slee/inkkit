@@ -1,11 +1,12 @@
 # InkKit development guide
 
-InkKit is a macOS, Python 3.9+, standard-library toolkit for CrossInk-compatible
-XTEINK readers. Its implemented CLI provides file-level microSD backup/migration;
-Development source includes a native current-card configuration app and synthetic
-demos. Its audited CrossInk v1.6.1 profile has limited owner-reported X3 acceptance;
-broader settings/model and complete-snapshot acceptance remain pending. It is
-not a signed/notarized public release. See docs/configuration-reference.md.
+InkKit includes a native macOS SwiftUI/AppKit configuration app and a separate
+Python 3.9+ standard-library microSD backup/migration CLI for CrossInk-compatible
+XTEINK readers. The app implements current-card settings editing, complete local
+configuration backups, reviewed restore and synthetic demos. Its audited contract
+is CrossInk v1.6.1; implementation scope and hardware evidence are separate.
+The app is a local development build, without a signed/notarized public download;
+v1.0.0 is the published migration CLI release. See docs/configuration-reference.md.
 X3, X4, X4 Classic and X4 Pro share the opaque-file workflow; physical validation
 is separate from implementation scope. Only X3 has reviewed physical acceptance.
 
