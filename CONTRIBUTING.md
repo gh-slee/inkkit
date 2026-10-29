@@ -44,8 +44,19 @@ silently replace an existing custom path. See [development](docs/development.md)
 
 ## Pull requests and publication
 
-Describe the concrete problem, resulting behavior, validation and limits using the
-PR template. Run [publication checks](docs/publishing.md) for the full worktree/index
+Use the [canonical PR template](.github/pull_request_template.md) for both new PRs
+and description updates. Start with the problem and resulting behavior, group
+meaningful files/modules and keep local checks, CI, independent review and required
+pre-publication evidence separate. Use concise bullets, retain material limits and
+remove unused optional sections. Humanizer may improve wording while preserving
+required headings, evidence and technical precision.
+
+Generate the complete body from the actual base-to-head diff and verified evidence.
+Run `python3 scripts/check_pr_description.py --body-file <reviewed-file>`, then send
+that exact file with `gh pr create --body-file`, `gh pr edit --body-file` or an
+explicit API body.
+Do not use commit autofill or append a development diary. Mark unrun/pending/failed
+checks accurately. Run [publication checks](docs/publishing.md) for the full worktree/index
 and reachable history. Stage explicit reviewed paths, not `git add .`. Never force-add
 backups. Use your GitHub noreply author/committer address for public commits; the
 history guard checks it without printing private identities. Inspect existing

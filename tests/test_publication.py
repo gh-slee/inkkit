@@ -139,6 +139,14 @@ class PublicationTests(unittest.TestCase):
             with self.subTest(image=relative):
                 self.assertEqual(guard.inspect_entry(project, relative, '100644', '', '0', worktree=True), [])
 
+    def test_pr_standard_paths_are_exact_public_exceptions(self):
+        for name in ('scripts/check_pr_description.py', 'tests/test_pr_description.py',
+                     '.github/workflows/pr-description.yml'):
+            self.assertTrue(guard.allowed(name))
+        for name in ('work/pr-body.md', 'private/pr-body.md', 'scripts/unreviewed_publisher.py',
+                     '.github/workflows/unreviewed.yml'):
+            self.assertFalse(guard.allowed(name))
+
     def test_unknown_nonignored_source_rejected(self):
         (self.root / 'unreviewed.txt').write_text('Synthetic unknown file')
         self.assertTrue(guard.audit(self.root, 'worktree')[1])

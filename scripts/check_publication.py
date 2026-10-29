@@ -20,6 +20,8 @@ PUBLIC_PATHS = {
     'docs/development.md', 'docs/publishing.md', 'docs/agent-development.md',
     'assets/readme/xteink-mark.svg', 'assets/readme/README.md',
     'scripts/check_publication.py', 'scripts/install_git_hooks.py',
+    'scripts/check_pr_description.py', 'tests/test_pr_description.py',
+    '.github/workflows/pr-description.yml',
     'tests/test_xteink_sd_migrate.py', 'tests/test_safety.py', 'tests/test_publication.py',
     'tests/test_recovery.py',
     'inkkit_config.py', 'inkkit_helper.py', 'macos/InkKitApp.swift', 'macos/Info.plist',

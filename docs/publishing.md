@@ -76,6 +76,41 @@ These are maintenance checks, not part of the reader's migration prompts. The CL
 does not run Git or publish anything. See [SECURITY.md](../SECURITY.md) if data was
 exposed: removing the latest copy does not remove historical blobs or downloaded copies.
 
+## PR descriptions and explicit submission
+
+Use the [canonical PR template](../.github/pull_request_template.md) and
+[authoring workflow](agent-development.md#pr-authoring-and-updates) for every new
+PR and description update. Generate the body from the actual full base-to-head
+diff, current docs and verified evidence. Group meaningful modules; keep required
+sections and separate evidence categories even in a short PR. Conditional risk,
+compatibility, visual and Issue sections must reflect the actual change.
+
+Save the complete reviewed Markdown under ignored `work/`, then run:
+
+```bash
+python3 scripts/check_pr_description.py --body-file work/pr-body.md
+```
+
+Keep local verification distinct from actual push/PR CI, independent reviews and
+required InkKit checks. Record unrun/pending/failed checks and skips honestly. Do
+not reuse another commit's results as current evidence, invent QA or expose private
+backup contents, paths or owner approval records. Humanizer may polish wording;
+it cannot remove required structure or alter facts.
+
+After the existing scope/privacy approval, use `gh pr create --body-file` or
+`gh pr edit <number> --body-file` with that same file (or an explicit API body).
+InkKit has no automatic PR publisher; no commit autofill or implicit template
+insertion guarantees compliance. Revalidate the whole body after material changes
+and read back remote commit/file/body information. Required pre-PR validation means
+InkKit's existing applicable checks and publication audits. The PR-format workflow
+adds no packaging or hardware acceptance requirement.
+
+The read-only PR-description workflow checks source and description updates using
+its event JSON, without printing the body. Format/pattern checks cannot prove
+facts, reviewer independence or publication consent, and run after upload. They
+do not authorize a push, merge or release. Repository branch-protection settings
+are unchanged; direct manual submission remains the author's responsibility.
+
 ## Source archives and local preview packaging
 
 `.gitattributes` marks root/nested private overrides, setup requests, backup and
