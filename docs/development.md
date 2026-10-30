@@ -80,6 +80,30 @@ The Python 3.12 job also typechecks the native SwiftUI source. CI does not packa
 sign, notarize or publish an app. There are no backup uploads or test-artifact
 uploads. Badge status is tied to `main`.
 
+## PR-description checks
+
+The [canonical template](../.github/pull_request_template.md) and
+[authoring guide](agent-development.md#pr-authoring-and-updates) cover creation and
+updates. Validate the exact Markdown before sending it with the GitHub CLI/API:
+
+```bash
+python3 scripts/check_pr_description.py --body-file work/pr-body.md
+XTEINK_TESTING=1 python3 -m unittest discover -s tests -p 'test_pr_description.py' -v
+```
+
+The separate `.github/workflows/pr-description.yml` workflow runs on PR open,
+reopen, synchronize and edited events. It uses read-only permissions and pinned
+Actions, and passes only the trusted event-file path to the checker; PR text is
+never shell code. It adds no packages or application dependencies. Existing macOS
+unit/Swift/publication jobs retain their current triggers and behavior.
+
+The checker covers required headings/order, summary/file bullets, four evidence
+statuses and bounded privacy patterns. Synthetic regressions exercise malformed
+bodies/events, fake headings, explicit gaps, secret redaction and event injection.
+It cannot certify factual accuracy, independent QA, prose quality or owner consent.
+These development-only checks use synthetic Markdown/events and require no real
+card or app rebuild.
+
 ## Versions and documentation
 
 Use `__version__` as the software version source and record changes in

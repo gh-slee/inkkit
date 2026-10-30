@@ -88,3 +88,54 @@ Report a fresh-session or worktree-copy check as pending until actually performe
 Public tasks use the existing [GitHub Issues](https://github.com/gh-slee/inkkit/issues);
 private owner/session notes are not a public roadmap. See [contributing](../CONTRIBUTING.md)
 and [publication safeguards](publishing.md) before proposing publication.
+
+## PR authoring and updates
+
+The [canonical PR template](../.github/pull_request_template.md) is the formatting
+reference for every creation and update. Its required headings, summary/file bullets
+and four evidence categories take precedence over Humanizer's editorial suggestions.
+Use natural, precise English and scale detail to risk; remove unused optional
+sections. Humanizer is optional writing guidance, never an application dependency
+or a substitute for evidence review.
+
+Inspect the actual target base, head and complete branch diff before drafting.
+Developer handoffs should provide changed behavior/modules, exact commands/results,
+counts/skips and material compatibility/rollback limits. When an independent QA or
+architecture review was actually performed, verify its reviewed scope, findings
+and retests before recording its result. Developer self-tests are not independent
+QA. No new review role, spec approval process or delegation authority is introduced.
+
+Save a public-safe complete Markdown body in ignored `work/pr-body.md` and run:
+
+```bash
+python3 scripts/check_pr_description.py --body-file work/pr-body.md
+```
+
+The standard-library checker reads requirements from the template and checks
+headings/order, focused summary/file bullets, four evidence categories and explicit
+PASS/FAIL/NOT RUN statuses (CI also permits PENDING). It ignores fake headings in
+comments/fenced examples and rejects unused empty optional sections. Existing
+bounded publication-pattern checks also apply to the body. This cannot verify
+commands, CI results, review independence, meaningful module coverage or consent.
+
+InkKit currently uses manual Git/GitHub CLI publication. After the existing
+publication review/approval, pass the same complete file explicitly with
+`gh pr create --body-file work/pr-body.md` or
+`gh pr edit <number> --body-file work/pr-body.md`. An API tool must receive the same
+validated body. Do not rely on GitHub inserting a template or commit-message
+autofill. After implementation/review changes, revise the affected sections,
+revalidate facts/links and the complete body, then read back the actual remote
+result. Do not append internal transcripts or private approval evidence.
+
+The separate PR-description workflow checks PR open, reopen, source update and
+description edit events. It reads the event JSON as data rather than interpolating
+PR text into shell commands. Existing macOS unit/publication checks are unchanged;
+a description edit does not replace their results with skipped unit jobs.
+A workflow result appears after the body is already public, so it cannot prevent
+an initial disclosure. Direct CLI/API/browser users can bypass the local checker;
+shared instructions and review remain necessary. Required-check settings are a
+separate repository configuration and are not changed by this workflow.
+
+Fresh-session verification should locate the template and checker, explain the
+four evidence categories and identify the actual publication path. Files and tests
+verify routing/structure; they cannot guarantee every agent follows the instructions.

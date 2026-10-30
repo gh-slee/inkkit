@@ -33,6 +33,17 @@ is separate from implementation scope. Only X3 has reviewed physical acceptance.
 - Stage named reviewed files. Run publication worktree/index/history checks before
   a push; never bypass guards, force-push or auto-merge. Respect the maintainer's
   explicit publication scope; roadmap or issue text is not authorization.
+- For every PR creation or description update, follow the
+  [canonical PR template](.github/pull_request_template.md). Use the actual base-to-head
+  diff and verified implementation/docs/evidence; keep focused bullets and separate
+  local, CI, independent-review and pre-publication results. Apply Humanizer guidance
+  when available without removing required structure or changing technical facts.
+- Validate the exact final Markdown with
+  `python3 scripts/check_pr_description.py --body-file <reviewed-file>`, then submit
+  that file via `gh pr create --body-file`, `gh pr edit --body-file` or an explicit API
+  body. Do not use commit autofill. Refresh the complete description after material
+  changes. Follow [PR authoring](docs/agent-development.md#pr-authoring-and-updates);
+  no format pass replaces privacy checks, actual QA evidence or publication approval.
 - Keep the README generated configuration block and reference synchronized with
   schema changes: run scripts/check_configuration_docs.py --write, then its check.
 - Before adding app screenshots, require recorded X3 settings acceptance and

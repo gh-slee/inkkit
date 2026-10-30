@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Standardize PR descriptions with a canonical review template, shared authoring
+  instructions, explicit complete-body submission and a standard-library structure/
+  privacy checker. Add synthetic regressions and a separate read-only workflow
+  for source/description updates; preserve the existing macOS checks and publication
+  approval boundaries. No application or card workflow changes.
+
 - Present the native macOS app first in the README, with build/use instructions,
   existing native screenshots, device scope and SwiftUI/AppKit/Python stack.
   Align contributor, security and architecture docs with complete configuration

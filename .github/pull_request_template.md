@@ -1,14 +1,80 @@
-## Problem and resulting behavior
+<!-- This file is the canonical PR format. Keep the three required sections and
+all four evidence categories, even for a small PR. Replace placeholders, use real
+results, and remove unused conditional/recommended sections. Humanizer may improve
+wording but must preserve this structure, technical facts and validation gaps.
+The pr-standard comments identify requirements for the lightweight validator. -->
 
-Describe the concrete trigger and resulting behavior.
+<!-- pr-standard: required -->
+## Change Summary
 
-## Validation
+<One sentence stating the problem and resulting behavior.>
 
-List synthetic tests and remaining limitations. Distinguish device/firmware scope
-from actual hardware evidence. Never format real media or attach real backups,
-settings, credentials, book titles or private paths to a PR.
+- <Important functional change or meaningful before/after behavior.>
+- <What users/developers can do, or a significant implementation decision.>
+<!-- Use 2-6 focused bullets. Keep small changes short. -->
 
-## Documentation and privacy
+<!-- pr-standard: required -->
+## Files Changed
 
-List affected guides and publication checks. Keep legacy backups compatible and
-include only reviewed public source. Do not weaken disk-safety checks.
+- `<repository-relative path>`: <What changed and why it matters.>
+<!-- Group meaningful modules rather than repeating the diff inventory. Summarize
+large PRs in roughly 3-10 bullets; never omit an important area to meet a target.
+Mention significant additions, removals, migrations and interface changes. -->
+
+<!-- pr-standard: required -->
+## Testing & Evidence
+
+<!-- pr-standard: evidence -->
+### Local Verification
+
+- <STATUS>: <Actual command/suite, result, and relevant pass/fail/skip counts.>
+
+<!-- pr-standard: evidence -->
+### CI Verification
+
+- <STATUS>: <Verified run link and result; distinguish push and PR CI when useful.>
+<!-- Use NOT RUN before a remote run exists; PENDING while it runs. Never invent
+CI success. Link evidence rather than pasting logs. -->
+
+<!-- pr-standard: evidence -->
+### Independent QA / Architecture Review
+
+- <STATUS>: <Actual independent review scope and outcome, or why NOT RUN.>
+<!-- Developer self-tests are not independent QA. Do not publish private review
+files, authorization evidence, transcripts or machine-specific paths. -->
+
+<!-- pr-standard: evidence -->
+### Required Pre-PR Validation
+
+- <STATUS>: Configuration-document consistency and worktree/index/history publication audits for the reviewed scope; record the commit/range where available and any incomplete checks.
+<!-- Status values: PASS, FAIL, NOT RUN; CI may use PENDING. A skipped/incomplete
+check is not a PASS. Preserve InkKit checks, privacy and owner approval gates.
+Never format a real card for verification. Checkboxes, if used, must represent verified results rather than intentions. -->
+
+## Behavior & Compatibility
+
+- <Existing behavior, API/schema/CLI/config changes, opt-in flags, upgrade needs or data migration requirements.>
+<!-- Conditional: distinguish implemented behavior from planned features. -->
+
+## Risks, Limitations & Rollback
+
+- <Material limitation, isolation/security concern, migration risk and safe recovery/rollback constraint.>
+<!-- Conditional: omit boilerplate for low-risk documentation-only changes.
+Reverting code does not undo settings writes, deleted backups or card formatting. -->
+
+## Reviewer Focus
+
+- <Highest-value behavior, architectural decision or risk to examine.>
+<!-- Recommended for medium/large PRs: use 1-3 focused bullets. -->
+
+## Screenshots / Visual Evidence
+
+- <Synthetic before/after evidence and a short explanation of visible changes.>
+<!-- UI changes only. Use actual native captures with synthetic data and retain
+InkKit's image/provenance review requirements. Remove this section for nonvisual changes. -->
+
+## Related Issues / Documentation
+
+- <Verified relevant Issue, public spec/ADR or documentation link.>
+<!-- Conditional. Use Closes/Fixes only if the PR completes the issue; otherwise
+use Refs. Never invent an issue, review, approval, screenshot or evidence link. -->
