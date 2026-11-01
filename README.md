@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml"><img src="https://github.com/gh-slee/inkkit/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status on main"></a>
+  <a href="https://github.com/sponsors/gh-slee"><img src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?style=flat-square&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor gh-slee on GitHub"></a>
   <a href="#native-settings-app-development"><img src="https://img.shields.io/badge/App-Development-CC8A24?style=flat-square" alt="Native app: development build"></a>
   <a href="#tech-stack"><img src="https://img.shields.io/badge/UI-SwiftUI-F05138?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="SwiftUI and AppKit interface"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/Platform-macOS-202C36?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="Native macOS app and migration CLI"></a>
@@ -25,7 +26,8 @@
   <a href="#supported-devices">Devices</a> ·
   <a href="#migration-cli">Migration CLI</a> ·
   <a href="#documentation">Documentation</a> ·
-  <a href="CONTRIBUTING.md">Contribute</a>
+  <a href="CONTRIBUTING.md">Contribute</a> ·
+  <a href="#support-this-project">Support</a>
 </p>
 
 **InkKit is an open-source native macOS app for managing CrossInk settings on your XTEINK reader's current SD card.** Adjust display and reading preferences, manage Wi-Fi/OPDS/sync configuration, and back up or restore complete configurations from a SwiftUI interface. The existing Python CLI handles full-card backup and migration separately.
@@ -438,7 +440,11 @@ Git hooks are installed only in this checkout. Tests use disposable synthetic fi
 
 ## Support this project
 
-If you find this project useful, consider [sponsoring on GitHub](https://github.com/sponsors/gh-slee) to support ongoing development, bug fixes, testing, documentation, and maintenance.
+I'm building InkKit for people who like their e-readers and want useful tools to look after them. If the settings app or backup tools help you, sponsorship supports the work of testing device profiles, improving recovery and keeping the docs useful.
+
+[❤️ Sponsor on GitHub](https://github.com/sponsors/gh-slee)
+
+You can also help with a [star](https://github.com/gh-slee/inkkit/stargazers), a [bug report](https://github.com/gh-slee/inkkit/issues) or a [contribution](CONTRIBUTING.md). Thank you!
 
 Sponsorship is entirely optional. All features remain free and open source.
 
