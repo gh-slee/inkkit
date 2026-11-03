@@ -24,8 +24,8 @@ CrossInk v1.6.1 field/storage/model contract and primary source links.
 
 A real card must be selected explicitly, directly under `/Volumes`, and the user
 must select a listed CrossInk release and a reader shipped in that release, then
-confirm both. Only v1.6.1 is editable; the other releases are backup-only (see
-below). A directory name
+confirm both. v1.6.1 is editable, v1.6.0 exposes a reviewed subset and the other
+releases are backup-only (see below). A directory name
 cannot prove the reader model or firmware. The adapter requires a namespaced
 CrossInk settings file, external writable removable USB/SD media <=2 TiB, one
 mounted FAT32/exFAT partition, a readable UUID and no backup/Time Machine markers.
@@ -147,7 +147,8 @@ strict restore behavior remain available with explicit scope labels.
 
 `profiles.describe` exports the implemented source-reviewed firmware, model and
 capability catalogue from `crossink_contracts.py`. Each release states its access:
-`edit` for the audited v1.6.1 schema/codec, or `backup` for exact-byte complete
+`edit` for the audited v1.6.1 schema/codec (v1.6.0 uses a reviewed field/store
+subset with release-aware validation), or `backup` for exact-byte complete
 snapshots only. Backup-only sessions parse stores as bounded JSON/UTF-8 without
 field interpretation, export no fields or capabilities, reject every per-store
 preview/apply/restore with `backup_only` and record the release in snapshot

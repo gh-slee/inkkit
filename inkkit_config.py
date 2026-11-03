@@ -98,10 +98,9 @@ def parse_object(data):
         raise ConfigError('invalid_json', 'Settings must be a bounded, valid UTF-8 JSON object without duplicate keys.') from None
 
 
-def _document(data, store='settings', strict=True):
-    """Parse a store. Non-strict parsing is only for exact-byte backups of
-    releases whose schema this engine has not reviewed: bounded, valid data,
-    with no interpretation of fields."""
+def _document(data, store='settings', firmware=schema.FIRMWARE_VERSION):
+    """Parse a store. Without a reviewed firmware codec (None), parsing is only
+    for exact-byte backups: bounded, valid data with no field interpretation."""
     if data is None:
         doc = {'path': ''} if store == 'dictionary' else {}
     elif store == 'dictionary':
@@ -111,12 +110,12 @@ def _document(data, store='settings', strict=True):
             raise ConfigError('invalid_json', 'The dictionary path is not valid UTF-8.') from None
     else:
         doc = parse_object(data)
-    if not strict:
+    if firmware is None or not schema.validated(firmware, store):
         return doc
     if store == 'settings' and any(key in doc for key in ('lineSpacing', 'screenMargin', 'sleepTimeout')):
         raise ConfigError('legacy_settings', 'Legacy settings need firmware migration before editing.')
     try:
-        codec.validate_document(doc, store)
+        codec.validate_document(doc, store, firmware)
     except (ValueError, TypeError, KeyError, IndexError):
         raise ConfigError('invalid_value', 'This saved configuration has an unsupported structure or field type. Preserve it and let the firmware migrate it before editing.') from None
     return doc
@@ -275,7 +274,8 @@ class _Workspace:
                 inkkit_volume.ensure_separate_storage(info, os.fstat(self.hostfd))
             if not schema.supports_backup(self.model, self.firmware):
                 raise ConfigError('profile', 'Choose a supported XTEINK model.')
-            self.editable = schema.supports_configuration(self.model, self.firmware)
+            self.editable = (schema.supports_configuration(self.model, self.firmware)
+                             and schema.validated(self.firmware, self.store))
             self.profile = schema.profile_id(self.firmware)
             self.filename = schema.STORES[self.store][0]
             self.config = os.open('.crosspoint', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.fd)
@@ -300,13 +300,15 @@ class _Workspace:
                 raise ConfigError('external_change', 'The card or workspace changed. Reload before continuing.')
 
     def require_editable(self):
-        if not self.editable:
+        if not schema.supports_configuration(self.model, self.firmware):
             raise ConfigError('backup_only', 'Settings for this CrossInk version have not been reviewed. Complete backups and same-reader restore remain available; editing is blocked.')
+        if not self.editable:
+            raise ConfigError('store', 'This configuration category does not exist in the selected CrossInk version.')
 
     def fields(self, doc):
         if not self.editable:
             return ()
-        return tuple(Field(**field) for field in schema.store_fields(self.store, self.model, doc))
+        return tuple(Field(**field) for field in schema.store_fields(self.store, self.model, doc, self.firmware))
 
     @contextmanager
     def lock(self):
@@ -339,7 +341,7 @@ class _Workspace:
             except FileNotFoundError:
                 continue
             raise ConfigError('recovery_pending', 'Firmware recovery files exist. Resolve them before editing settings.')
-        doc = _document(raw, self.store, self.editable)
+        doc = _document(raw, self.store, self.firmware if self.editable else None)
         token = dict(root=self.identity, directory=self.config_identity, file=_identity(info) if info else None,
                      sha256=digest(raw) if raw is not None else None, mtime_ns=info.st_mtime_ns if info else None, size=info.st_size if info else 0, store=self.store)
         return raw, doc, token
@@ -372,7 +374,7 @@ class _Workspace:
             backup_id = uuid.uuid4().hex
             os.mkdir(backup_id, 0o700, dir_fd=parent)
             fd = os.open(backup_id, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
-            record = dict(format=RECORD_FORMAT, profile=PROFILE, identity=self.record_identity, store=self.store, before_exists=raw is not None,
+            record = dict(format=RECORD_FORMAT, profile=self.profile, identity=self.record_identity, store=self.store, before_exists=raw is not None,
                           id=backup_id, created=int(time.time()), state='prepared',
                           before_sha256=digest(raw or b''), after_sha256=digest(updated or b''))
             _write_new(fd, 'before.bin', raw or b'')
@@ -398,7 +400,7 @@ class _Workspace:
             if info.st_dev != os.fstat(parent).st_dev or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
                 raise ConfigError('invalid_backup', 'The backup directory is unsafe.')
             record = parse_object(_read_at(fd, 'record.json')[0])
-            if (record.get('format') != RECORD_FORMAT or record.get('profile') != PROFILE
+            if (record.get('format') != RECORD_FORMAT or record.get('profile') != self.profile
                     or record.get('identity') != self.record_identity or record.get('store', 'settings') != self.store or record.get('id') != backup_id
                     or record.get('state') not in ('prepared', 'written', 'restoring', 'restored')
                     or type(record.get('created')) is not int
@@ -462,10 +464,17 @@ def read_settings(root, store='settings', model=None):
         _, doc, token = workspace.snapshot()
         fields = [field.public() for field in workspace.fields(doc)]
         return dict(profile=workspace.profile, firmware=workspace.firmware, synthetic=workspace.synthetic,
-                    access='edit' if workspace.editable else 'backup',
-                    model=workspace.model, capabilities=schema.capabilities(workspace.model, workspace.firmware), store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
-                    fields=fields, values=codec.values(doc, store, fields), token=token,
+                    access=schema.access(workspace.model, workspace.firmware),
+                    model=workspace.model, capabilities=schema.capabilities(workspace.model, workspace.firmware), store=store, stores=[dict(id=key, label=schema.STORES[key][1]) for key in schema.release_stores(workspace.firmware) or schema.STORES],
+                    fields=fields, values=codec.values(doc, store, fields), token=token, groups=_settings_groups(workspace),
                     has_plaintext=_has_plaintext(doc), label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
+
+
+def _settings_groups(workspace):
+    """Main-settings pages that this release and model can show."""
+    if not schema.supports_configuration(workspace.model, workspace.firmware):
+        return []
+    return sorted({field['group'] for field in schema.main_fields(workspace.model, {}, workspace.firmware)})
 
 
 def _has_plaintext(value):
@@ -479,7 +488,7 @@ def _plan(workspace, doc, changes, allow_plaintext=True):
     if type(changes) is not dict or any(key not in {field['key'] for field in fields} for key in changes):
         raise ConfigError('unsupported_field', 'Only supported configuration fields can be changed.')
     try:
-        updated, secret = codec.patch_document(doc, workspace.store, fields, changes, allow_plaintext)
+        updated, secret = codec.patch_document(doc, workspace.store, fields, changes, allow_plaintext, workspace.firmware)
         diff = codec.differences(doc, updated, workspace.store, fields, changes)
     except (ValueError, TypeError, KeyError, IndexError) as error:
         # Codec errors are fixed public descriptions, never interpolated input.
@@ -555,7 +564,7 @@ def _restore_source(workspace, current, backup_id):
         if digest(raw) != record['before_sha256']:
             raise ConfigError('invalid_backup', 'The original configuration backup failed its integrity check.')
         original = raw if record.get('before_exists', True) else None
-        doc = _document(original, workspace.store)
+        doc = _document(original, workspace.store, workspace.firmware)
         if digest(current or b'') not in (record['before_sha256'], record['after_sha256']):
             raise ConfigError('external_change', 'Configuration no longer matches this backup. No files were restored.')
         return original, doc, record

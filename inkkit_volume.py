@@ -146,8 +146,8 @@ def open_card(root, model, firmware, confirmed):
         config = os.open('.crosspoint', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
         if os.fstat(config).st_dev != os.fstat(fd).st_dev:
             raise _error('identity', 'The configuration directory is on an unexpected device.')
-        _document(_read_at(config, 'crossink-settings.json', require_owner=False)[0],
-                  strict=schema.supports_configuration(model, firmware))
+        _document(_read_at(config, 'crossink-settings.json', require_owner=False)[0], 'settings',
+                  firmware if schema.supports_configuration(model, firmware) else None)
     finally:
         if config is not None:
             os.close(config)

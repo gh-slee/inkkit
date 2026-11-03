@@ -56,7 +56,9 @@ cannot supply a trusted location, demo creation stops without writing there.
 Keep a separate verified full backup first. Shut down the reader and put its current
 card in a separate SD reader. Choose **Open SD card**, select the mounted volume
 itself under `/Volumes`, choose the CrossInk version and reader model, then confirm
-them. CrossInk v1.6.1 opens for editing. Other listed versions, including
+them. CrossInk v1.6.1 opens for editing. CrossInk v1.6.0 opens with selected
+settings only; pages without reviewed v1.6.0 settings (such as Status bars and
+Font rendering) are hidden. Other listed versions, including
 "Newer than CrossInk v1.6.1 (unreviewed)", open backup-only: only Overview and
 Backups appear, and complete backups restore to the same reader and version.
 A **Confirm your reader** sheet must show the model selector, firmware checkbox,

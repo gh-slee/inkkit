@@ -332,10 +332,9 @@ class SchemaTests(unittest.TestCase):
     def test_backend_catalogue_and_every_store_report_model_capabilities(self):
         catalog = helper.dispatch(dict(protocol=2, action='profiles.describe'))
         self.assertEqual(catalog['unknown_policy'], 'settings_blocked_use_cli_backup_diagnostics')
-        editable = [item for item in catalog['profiles'] if item['access'] == 'edit']
-        self.assertEqual(len(editable), 1)
-        self.assertIs(catalog['profiles'][0], editable[0])
-        profile = editable[0]
+        editable = [item['firmware'] for item in catalog['profiles'] if item['access'] == 'edit']
+        self.assertEqual(editable, [schema.FIRMWARE_VERSION] + sorted(schema.RELEASE_SETTINGS, reverse=True))
+        profile = catalog['profiles'][0]
         self.assertEqual(profile['firmware'], schema.FIRMWARE_VERSION)
         self.assertEqual(profile['upstream_commit'], schema.UPSTREAM_COMMIT)
         self.assertEqual(profile['id'], config.PROFILE)

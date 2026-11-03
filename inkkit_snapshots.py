@@ -143,7 +143,8 @@ def _load(location, identifier):
                 if (type(record.get('size')) is not int or len(data) != record['size']
                         or config.digest(data) != record.get('sha256')):
                     raise error('snapshot', 'A configuration backup failed its checksum check.')
-                config._document(data, store, schema.supports_configuration(manifest['model'], manifest['firmware']))
+                config._document(data, store, manifest['firmware']
+                                 if schema.supports_configuration(manifest['model'], manifest['firmware']) else None)
                 content[store] = data
         if content['settings'] is None:
             raise error('snapshot', 'The complete backup is missing its main settings file.')
@@ -273,7 +274,7 @@ def _plan(workspaces, manifest, content, fingerprint, recovery=False):
     differences, fields = [], []
     for store, workspace in workspaces.items():
         raw, before, _ = current[store]
-        after = config._document(content[store], store, workspace.editable)
+        after = config._document(content[store], store, workspace.firmware if workspace.editable else None)
         descriptors = [field.public() for field in workspace.fields(before)]
         rows = codec.differences(before, after, store, descriptors)
         for field in descriptors:
@@ -293,8 +294,8 @@ def _plan(workspaces, manifest, content, fingerprint, recovery=False):
     if recovery:
         differences.append(dict(key='__recovery__', label='Interrupted complete restore',
                                 before='Completion needs verification', after='Verify all files and finish recovery'))
-    editable = workspaces['settings'].editable
-    plaintext = any(config._has_plaintext(config._document(raw, store, editable))
+    plaintext = any(config._has_plaintext(config._document(raw, store, workspaces[store].firmware
+                                                            if workspaces[store].editable else None))
                     for store, raw in content.items() if raw is not None)
     return dict(differences=differences, fields=fields, requires_plaintext=plaintext,
                 expected={store: value[2] for store, value in current.items()}, backup_sha256=fingerprint)
@@ -414,7 +415,7 @@ def backup_catalogue(root=None):
     result = list_snapshots(root)
     if root is not None:
         with config._Workspace(root) as primary:
-            model = primary.model
+            model, firmware = primary.model, primary.firmware
         for store in schema.STORES:
             for entry in config.list_backups(root, store):
                 checksum = ''
@@ -430,7 +431,7 @@ def backup_catalogue(root=None):
                         restorable = True
                     except (config.ConfigError, OSError):
                         pass
-                result.append(dict(entry, kind='legacy', model=model, firmware=schema.FIRMWARE_VERSION,
+                result.append(dict(entry, kind='legacy', model=model, firmware=firmware,
                                    reason='legacy', store=store, scope=schema.STORES[store][1],
                                    can_restore=restorable, can_delete=deletable, checksum=checksum))
     return sorted(result, key=lambda entry: (entry['created'], entry['id']), reverse=True)

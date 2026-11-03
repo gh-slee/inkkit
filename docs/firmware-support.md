@@ -15,7 +15,7 @@ firmware. Physical evidence is separate from both.
 | Firmware | Source pin | Access | Models | Physical evidence |
 | --- | --- | --- | --- | --- |
 | CrossInk 1.6.1 | `9914146eeae7b46b300f475a16c32426fc02ec1f` | Edit | X3, X4, X4 Classic, X4 Pro | Selected owner-reported X3 preferences/Restore/eject; other settings/models pending |
-| CrossInk 1.6.0 | `b25beb13761d5851f98e7eada09aa5e7d430df48` | Backup only | X3, X4, X4 Classic, X4 Pro | None |
+| CrossInk 1.6.0 | `b25beb13761d5851f98e7eada09aa5e7d430df48` | Edit (selected settings) | X3, X4, X4 Classic, X4 Pro | None |
 | CrossInk 1.5.1 | `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` | Backup only | X3, X4, X4 Classic, X4 Pro | None |
 | CrossInk 1.5.0 | `0de623ed24acd94ae2301e8e1f4a42e32613110b` | Backup only | X3, X4 | None |
 | CrossInk 1.4.0.1 | `54ba245fe8b6dbfcc566edfd175eb36d76c644ad` | Backup only | X3, X4 | None |
@@ -30,6 +30,26 @@ eras: v1.2.7 moved OPDS servers to `opds.json`; v1.3.3 moved settings to
 `crossink-settings.json`; v1.4.0 adopted freeink-sdk; v1.5.0 greatly expanded
 settings; v1.5.1 shipped X4 Classic/X4 Pro firmware; v1.6.1 added
 `ttf-rendering.json`. Backup-only releases export no hardware capabilities.
+
+### CrossInk 1.6.0 selected settings
+
+v1.6.0 exposes the 82 main settings whose upstream declaration, persisted raw
+values and default match the audited v1.6.1 contract, plus Wi-Fi, OPDS, reading
+sync and dictionary (their store sources did not change). Cover Grid (`uiTheme` 7)
+is not offered. Font rendering is hidden because `ttf-rendering.json` starts in
+v1.6.1. Everything else in a v1.6.0 file stays opaque and is preserved unchanged:
+
+- Shortcut actions (power, chords, Home, long-press) and Quick Actions: v1.6.1
+  added action values and changed chord sleep rules.
+- Reader font size: v1.6.0 offers four fixed built-in sizes, not 8–22 pt.
+- Reading-stats tracking: only a debug-build option in v1.6.0.
+- Side-button layout/long-press and the individual status-bar keys: current in
+  v1.6.0 but replaced in v1.6.1; they need their own reviewed editors.
+- Language and keyboard layouts: translation catalogues changed and are unreviewed.
+
+The editable list is `inkkit_schema.RELEASE_SETTINGS['1.6.0']`; the freeink-sdk
+change between the two pins adds a non-XTEINK board only, so XTEINK capabilities
+are unchanged.
 
 The SDK capability pin is `699370183fa3a0e33c9cb83a36f701bbb6022095`.
 Its board definitions give no frontlight/touch to X3, X4 or X4 Classic; X4 Pro has
@@ -47,10 +67,11 @@ there is no second Swift device list or hardcoded firmware confirmation. All sto
 snapshots carry the selected model's capabilities, so changing categories cannot
 accidentally expose another model's hardware page.
 
-The current engine implements **one** editable provider. Adding a release to the
-registry only enables backup-only access; `supports_configuration` still rejects
-editing for every other release, and unlisted firmware/models fail before disk
-queries or writes. A future
+The engine implements the audited v1.6.1 provider and a reviewed subset of it
+for v1.6.0. Adding a release to the registry only enables backup-only access; an
+editable release also needs `RELEASE_SETTINGS`/`RELEASE_STORES` entries, release-
+aware codec validation and tests (an import-time check enforces this). Unlisted
+firmware/models fail before disk queries or writes. A future
 provider needs its schema, codecs, store paths, migration/default behavior and
 explicit dispatch, with catalogue entries matching what is actually implemented.
 No remote executable/profile downloads, nearest-version fallback or nightly

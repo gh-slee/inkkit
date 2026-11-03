@@ -82,6 +82,7 @@ struct FirmwareProfile: Decodable, Identifiable {
     let firmware: String
     let label: String
     let access: String
+    let stores: [String]
     let upstream_commit: String
     let sdk_commit: String
     let models: [ReaderProfile]
@@ -99,6 +100,10 @@ func isConfigurationGroupVisible(_ group: String, capabilities: [String]) -> Boo
 func isSectionAvailable(_ section: PreviewSection, snapshot: Snapshot?) -> Bool {
     guard let snapshot else { return true }
     if snapshot.access != "edit" { return section == .overview || section == .backups }
+    if section == .overview || section == .backups { return true }
+    // Older reviewed releases expose fewer categories and settings pages.
+    guard snapshot.stores.contains(where: { $0.id == section.store }) else { return false }
+    if section.store == "settings", !snapshot.groups.contains(section.group) { return false }
     return isConfigurationGroupVisible(section.group, capabilities: snapshot.capabilities)
 }
 
@@ -110,6 +115,7 @@ struct Snapshot: Decodable {
     let label: String
     let firmware: String
     let access: String
+    let groups: [String]
     let has_plaintext: Bool
     let profile: String
     let synthetic: Bool
@@ -1077,8 +1083,8 @@ struct InkKitLauncher {
                     throw HelperFailure(code: "runtime", message: "The self-contained runtime check failed.")
                 }
                 for profile in result.catalog.profiles {
-                    guard (profile.access == "edit") == (profile.firmware == result.snapshot.firmware),
-                          profile.access == "edit" || profile.models.allSatisfy({ $0.capabilities.isEmpty }) else {
+                    guard profile.access == "edit" || profile.models.allSatisfy({ $0.capabilities.isEmpty }),
+                          profile.access != "edit" || !profile.stores.isEmpty else {
                         throw HelperFailure(code: "profile", message: "The release access check failed.")
                     }
                     for reader in profile.models where profile.access == "edit" {
