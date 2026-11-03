@@ -4,6 +4,15 @@ InkKit aims to keep supporting new CrossInk releases and XTEINK devices. A versi
 number in the app identifies a **reviewed storage contract**, not a permanent
 limit on the project and not a guarantee that unknown future firmware works.
 
+## Support focus
+
+Most readers should run the latest CrossInk release; the firmware updates itself
+over the air. InkKit's ongoing work is to review each new release quickly so the
+latest version stays editable. v1.6.0 and v1.5.1 keep their reviewed subsets.
+Older releases stay backup-only, and no further per-release editors are planned
+for them. Backup-only screens tell users to update the reader to the latest
+editable version; InkKit itself never updates or flashes firmware.
+
 ## Pinned releases
 
 `crossink_contracts.py` lists every release the app accepts. **Edit** means the

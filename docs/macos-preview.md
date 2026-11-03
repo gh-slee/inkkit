@@ -61,6 +61,9 @@ selected settings only; pages without reviewed settings for that version (such a
 Font rendering) are hidden. Other listed versions, including
 "Newer than CrossInk v1.6.1 (unreviewed)", open backup-only: only Overview and
 Backups appear, and complete backups restore to the same reader and version.
+Backup-only screens suggest updating the reader to the latest editable CrossInk
+version on the reader itself; for an unreviewed newer version they explain that
+a later InkKit update can add editing.
 A **Confirm your reader** sheet must show the model selector, firmware checkbox,
 Cancel and Open card. Until you confirm, the card has not been opened. If an older
 build displays an empty sheet, quit it and rebuild into a fresh output directory.

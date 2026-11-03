@@ -334,6 +334,14 @@ final class PreviewModel: ObservableObject {
     var isBackupOnly: Bool { snapshot.map { $0.access != "edit" } ?? false }
     // Synthetic demos always use the editable reviewed release.
     var demoModels: [ReaderProfile] { catalog?.profiles.first { $0.access == "edit" }?.models ?? [] }
+    /// Guidance for backup-only releases. InkKit never updates reader firmware.
+    func editingHint(for firmware: String?) -> String {
+        let latest = catalog?.profiles.first { $0.access == "edit" }?.firmware ?? ""
+        if firmware == "unreviewed-newer" {
+            return "This InkKit build has not reviewed this CrossInk version yet. A later InkKit update can add editing; until then, back up before changing anything on the reader."
+        }
+        return "To edit settings, update the reader to CrossInk v\(latest) on the reader itself, then reopen the card and choose that version. InkKit does not update firmware."
+    }
     @Published var sessionGeneration = 0
     private var root: String?
     private var reviewedChanges: [String: SettingValue] = [:]
@@ -420,7 +428,7 @@ final class PreviewModel: ObservableObject {
             install(result.snapshot)
             try await fetchBackups()
             status = isBackupOnly
-                ? "Card opened for backups only. This CrossInk version's settings have not been reviewed, so they cannot be edited."
+                ? "Card opened for backups only. " + editingHint(for: snapshot?.firmware)
                 : "Card opened. Model and firmware are user-confirmed; no settings have been written."
         } catch { report(error) }
     }
@@ -819,6 +827,8 @@ struct CardProfileSheet: View {
             if model.currentProfile?.access != "edit" {
                 Text("Backup only: settings for this version have not been reviewed and cannot be edited. You can back up all six configuration files and restore them to this same reader.")
                     .font(.callout).foregroundStyle(.secondary)
+                Text(model.editingHint(for: model.currentProfile?.firmware))
+                    .font(.callout).foregroundStyle(.secondary)
             }
             Text("Version or device not listed? Choose the unreviewed newer option for backups, or use the separate migration CLI to back up or diagnose a layout-compatible card.")
                 .font(.callout).foregroundStyle(.secondary)
@@ -968,6 +978,8 @@ struct PreviewWindow: View {
                     if model.isBackupOnly {
                         Label("This CrossInk version is backup only. Open Backups to save or restore this reader's complete configuration. Settings are not shown or edited until the version is reviewed.", systemImage: "lock.doc")
                             .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Text(model.editingHint(for: model.snapshot?.firmware))
+                            .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     Picker("Demo model", selection: $model.chosenModel) {
                         ForEach(model.demoModels) { Text($0.label).tag($0.id) }

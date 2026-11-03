@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Backup-only screens explain how to regain editing: update the reader to the
+  latest editable CrossInk version, or wait for an InkKit update that reviews a
+  newer release. Document that new-release review, not older editors, is the
+  ongoing support focus.
+
 - Edit CrossInk v1.6.0 and v1.5.1 settings that are unchanged from v1.6.1 (82 and
   81 main settings, Wi-Fi, OPDS, reading sync and dictionary). Other data in those
   releases, including side-button layouts and individual status-bar keys, is
