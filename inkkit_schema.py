@@ -49,10 +49,14 @@ RELEASE_SETTINGS = {
         'touchReaderControls', 'twoFingerRotationEnabled', 'twoFingerSwipeDown', 'twoFingerSwipeLeft',
         'twoFingerSwipeRight', 'twoFingerSwipeUp', 'uiScale', 'uiTheme', 'wordSpacing')),
 }
+# Reviewed against v1.5.1 (4f2da6b7): the same declarations as v1.6.0 except that
+# two-finger rotation arrived in v1.6.0; v1.6.0 only added an atomic JSON writer.
+RELEASE_SETTINGS['1.5.1'] = RELEASE_SETTINGS['1.6.0'] - {'twoFingerRotationEnabled'}
 # Raw values that a release does not define for an otherwise matching field.
-RELEASE_REMOVED_CHOICES = {'1.6.0': {'uiTheme': frozenset({7})}}  # Cover Grid arrived in v1.6.1.
+RELEASE_REMOVED_CHOICES = {release: {'uiTheme': frozenset({7})}  # Cover Grid arrived in v1.6.1.
+                           for release in ('1.6.0', '1.5.1')}
 # ttf-rendering.json arrived in v1.6.1.
-RELEASE_STORES = {'1.6.0': ('settings', 'wifi', 'opds', 'koreader', 'dictionary')}
+RELEASE_STORES = {release: ('settings', 'wifi', 'opds', 'koreader', 'dictionary') for release in ('1.6.0', '1.5.1')}
 if (CONTRACTS[FIRMWARE_VERSION]['access'] != 'edit' or CONTRACTS[FIRMWARE_VERSION]['commit'] != UPSTREAM_COMMIT
         or CONTRACTS[FIRMWARE_VERSION]['sdk'] != SDK_COMMIT
         or {key for key, value in CONTRACTS.items() if value['access'] == 'edit'} != {FIRMWARE_VERSION} | set(RELEASE_SETTINGS)

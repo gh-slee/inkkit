@@ -202,7 +202,7 @@ class VolumeTests(unittest.TestCase):
 
     def test_release_catalogue_only_reviewed_releases_are_editable(self):
         catalog = schema.profile_catalog()['profiles']
-        self.assertEqual([item['firmware'] for item in catalog if item['access'] == 'edit'], [schema.FIRMWARE_VERSION, '1.6.0'])
+        self.assertEqual([item['firmware'] for item in catalog if item['access'] == 'edit'], [schema.FIRMWARE_VERSION, '1.6.0', '1.5.1'])
         self.assertEqual(catalog[0]['firmware'], schema.FIRMWARE_VERSION)
         self.assertEqual({item['firmware']: item['stores'] for item in catalog}['1.6.0'],
                          ['settings', 'wifi', 'opds', 'koreader', 'dictionary'])
@@ -211,8 +211,8 @@ class VolumeTests(unittest.TestCase):
             self.assertEqual(item['id'], schema.profile_id(item['firmware']))
             if item['access'] != 'edit':
                 self.assertTrue(all(model['capabilities'] == [] for model in item['models']))
-        for model, firmware, expected in (('X3', '1.6.1', 'edit'), ('X4 Pro', '1.6.0', 'edit'), ('X3', '1.5.1', 'backup'),
-                                          ('X4 Classic', '1.5.1', 'backup'), ('X4 Pro', '1.5.0', None),
+        for model, firmware, expected in (('X3', '1.6.1', 'edit'), ('X4 Pro', '1.6.0', 'edit'), ('X3', '1.5.1', 'edit'), ('X3', '1.5.0', 'backup'),
+                                          ('X4 Classic', '1.5.1', 'edit'), ('X4 Pro', '1.5.0', None),
                                           ('X4', '1.3.3', 'backup'), ('X3', '1.3.2', None),
                                           ('X3', 'unreviewed-newer', 'backup'), ('Sticky', '1.6.0', None),
                                           ('X3', 1.6, None), (None, '1.6.1', None)):
@@ -258,6 +258,21 @@ class VolumeTests(unittest.TestCase):
             with self.assertRaises(config.ConfigError) as error:
                 snapshots.preview_restore(other, backup)
             self.assertEqual(error.exception.code, 'snapshot_profile')
+
+    def test_v151_subset_excludes_settings_added_in_v160(self):
+        self.settings.write_bytes(b'{"deviceName":"Example reader","sideButtonLayout":1,"twoFingerRotationEnabled":0}\n')
+        with patch.object(volume, 'ensure_separate_storage'):
+            ref = volume.open_card(str(self.card), 'X4 Classic', '1.5.1', True)
+            snap = config.read_settings(ref)
+            self.assertEqual((snap['access'], snap['profile']), ('edit', 'crossink-1.5.1-preview'))
+            self.assertEqual({field['key'] for field in snap['fields']}, set(schema.RELEASE_SETTINGS['1.5.1']))
+            self.assertNotIn('twoFingerRotationEnabled', {field['key'] for field in snap['fields']})
+            with self.assertRaises(config.ConfigError) as error:
+                config.preview_plan(ref, snap['token'], {'twoFingerRotationEnabled': 1})
+            self.assertEqual(error.exception.code, 'unsupported_field')
+            config.apply_changes(ref, snap['token'], {'deviceName': 'Example changed'})
+            self.assertEqual(json.loads(self.settings.read_bytes()),
+                             dict(deviceName='Example changed', sideButtonLayout=1, twoFingerRotationEnabled=0))
 
     def test_v160_edits_only_reviewed_settings_and_preserves_its_own_layout(self):
         # Side-button layouts and individual status-bar keys are current v1.6.0 data.

@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- Edit CrossInk v1.6.0 settings that are unchanged from v1.6.1 (82 main settings,
-  Wi-Fi, OPDS, reading sync and dictionary). Other v1.6.0 data, including side-button
-  layouts and individual status-bar keys, is preserved and hidden; Font rendering
-  is not offered. Settings pages without reviewed fields are hidden.
+- Edit CrossInk v1.6.0 and v1.5.1 settings that are unchanged from v1.6.1 (82 and
+  81 main settings, Wi-Fi, OPDS, reading sync and dictionary). Other data in those
+  releases, including side-button layouts and individual status-bar keys, is
+  preserved and hidden; Font rendering is not offered. Settings pages without reviewed fields are hidden.
 
 - Accept every CrossInk release from v1.3.3 to v1.6.1, pinned to upstream
   commits and SDK pins, plus an explicit unreviewed-newer option. Only v1.6.1 is

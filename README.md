@@ -113,9 +113,9 @@ backend catalogue. The currently audited contract is **CrossInk v1.6.1** for X3,
 X4, X4 Classic and X4 Pro. Unsupported hardware pages are hidden where appropriate:
 X3, X4 and X4 Classic have no Frontlight page; X4 Pro has it.
 
-CrossInk v1.6.0 opens with a reviewed subset of settings: 82 main settings that
-are unchanged from v1.6.1, plus Wi-Fi, OPDS, reading sync and dictionary.
-CrossInk v1.3.3 to v1.5.1, and a confirmed release newer than v1.6.1, can be
+CrossInk v1.6.0 and v1.5.1 open with a reviewed subset of settings: 82 (v1.6.0)
+or 81 (v1.5.1) main settings that are unchanged from v1.6.1, plus Wi-Fi, OPDS,
+reading sync and dictionary. CrossInk v1.3.3 to v1.5.0, and a confirmed release newer than v1.6.1, can be
 opened in **backup-only** mode: complete configuration backups and exact restore
 to the same reader and release, with no settings view or editing. Each listed
 release is pinned to its upstream tag/commit, and its models follow that

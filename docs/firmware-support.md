@@ -16,7 +16,7 @@ firmware. Physical evidence is separate from both.
 | --- | --- | --- | --- | --- |
 | CrossInk 1.6.1 | `9914146eeae7b46b300f475a16c32426fc02ec1f` | Edit | X3, X4, X4 Classic, X4 Pro | Selected owner-reported X3 preferences/Restore/eject; other settings/models pending |
 | CrossInk 1.6.0 | `b25beb13761d5851f98e7eada09aa5e7d430df48` | Edit (selected settings) | X3, X4, X4 Classic, X4 Pro | None |
-| CrossInk 1.5.1 | `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` | Backup only | X3, X4, X4 Classic, X4 Pro | None |
+| CrossInk 1.5.1 | `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` | Edit (selected settings) | X3, X4, X4 Classic, X4 Pro | None |
 | CrossInk 1.5.0 | `0de623ed24acd94ae2301e8e1f4a42e32613110b` | Backup only | X3, X4 | None |
 | CrossInk 1.4.0.1 | `54ba245fe8b6dbfcc566edfd175eb36d76c644ad` | Backup only | X3, X4 | None |
 | CrossInk 1.4.0 | `b7f6708f96d05e5851f8bcfaaf57bc0e91dc0567` | Backup only | X3, X4 | None |
@@ -31,7 +31,7 @@ eras: v1.2.7 moved OPDS servers to `opds.json`; v1.3.3 moved settings to
 settings; v1.5.1 shipped X4 Classic/X4 Pro firmware; v1.6.1 added
 `ttf-rendering.json`. Backup-only releases export no hardware capabilities.
 
-### CrossInk 1.6.0 selected settings
+### CrossInk 1.6.0 and 1.5.1 selected settings
 
 v1.6.0 exposes the 82 main settings whose upstream declaration, persisted raw
 values and default match the audited v1.6.1 contract, plus Wi-Fi, OPDS, reading
@@ -47,9 +47,12 @@ v1.6.1. Everything else in a v1.6.0 file stays opaque and is preserved unchanged
   v1.6.0 but replaced in v1.6.1; they need their own reviewed editors.
 - Language and keyboard layouts: translation catalogues changed and are unreviewed.
 
-The editable list is `inkkit_schema.RELEASE_SETTINGS['1.6.0']`; the freeink-sdk
-change between the two pins adds a non-XTEINK board only, so XTEINK capabilities
-are unchanged.
+v1.5.1 has the same declarations except two-finger rotation, which arrived in
+v1.6.0, so it exposes 81 main settings; its store sources match v1.6.0 apart from
+the firmware's new atomic JSON writer. The editable lists are
+`inkkit_schema.RELEASE_SETTINGS`. Between the v1.5.1/v1.6.0 and v1.6.1 freeink-sdk
+pins, board changes add non-XTEINK boards and an IMU axis fix; RTC, tilt, touch,
+frontlight, Home and PSRAM capabilities for XTEINK readers are unchanged.
 
 The SDK capability pin is `699370183fa3a0e33c9cb83a36f701bbb6022095`.
 Its board definitions give no frontlight/touch to X3, X4 or X4 Classic; X4 Pro has

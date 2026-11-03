@@ -26,7 +26,7 @@ RELEASES = (
     dict(firmware='1.6.0', commit='b25beb13761d5851f98e7eada09aa5e7d430df48',
          sdk='b784446302c076b4b5a622627867f0c80905cc50', access='edit', models=ALL_READERS),
     dict(firmware='1.5.1', commit='4f2da6b7777b9a38fdf2606796d6da34caa7d2cb',
-         sdk='9f4d3f9ca675e64cc9d616081f39a33cdefce57e', access='backup', models=ALL_READERS),
+         sdk='9f4d3f9ca675e64cc9d616081f39a33cdefce57e', access='edit', models=ALL_READERS),
     dict(firmware='1.5.0', commit='0de623ed24acd94ae2301e8e1f4a42e32613110b',
          sdk='1ff020263cd2202ea79ce3eb811f5ac8489b8cde', access='backup', models=EDGE_READERS),
     dict(firmware='1.4.0.1', commit='54ba245fe8b6dbfcc566edfd175eb36d76c644ad',
