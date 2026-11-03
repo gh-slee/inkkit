@@ -113,6 +113,13 @@ backend catalogue. The currently audited contract is **CrossInk v1.6.1** for X3,
 X4, X4 Classic and X4 Pro. Unsupported hardware pages are hidden where appropriate:
 X3, X4 and X4 Classic have no Frontlight page; X4 Pro has it.
 
+CrossInk v1.3.3 to v1.6.0, and a confirmed release newer than v1.6.1, can be
+opened in **backup-only** mode: complete configuration backups and exact restore
+to the same reader and release, with no settings view or editing. Each listed
+release is pinned to its upstream tag/commit, and its models follow that
+release's changelog (X4 Classic and X4 Pro start at v1.5.1). Releases before
+v1.3.3 use a settings filename shared with other firmware and stay unsupported.
+
 New releases/devices need an upstream settings/capability review, schema/codec
 changes where needed and compatibility tests before configuration writes are
 enabled. Unknown versions are not silently treated as the nearest supported

@@ -11,6 +11,9 @@ import unittest
 from unittest.mock import patch
 
 import inkkit_config as config
+import inkkit_helper as helper
+import inkkit_schema as schema
+import inkkit_snapshots as snapshots
 import inkkit_volume as volume
 
 
@@ -196,6 +199,70 @@ class VolumeTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 'profile')
                 query.assert_not_called()
         self.assertFalse((self.host / 'InkKit').exists())
+
+    def test_release_catalogue_only_audited_release_is_editable(self):
+        catalog = schema.profile_catalog()['profiles']
+        self.assertEqual([item['firmware'] for item in catalog if item['access'] == 'edit'], [schema.FIRMWARE_VERSION])
+        self.assertEqual(catalog[-1]['firmware'], 'unreviewed-newer')
+        for item in catalog:
+            self.assertEqual(item['id'], schema.profile_id(item['firmware']))
+            if item['access'] != 'edit':
+                self.assertTrue(all(model['capabilities'] == [] for model in item['models']))
+        for model, firmware, expected in (('X3', '1.6.1', 'edit'), ('X4 Pro', '1.6.0', 'backup'),
+                                          ('X4 Classic', '1.5.1', 'backup'), ('X4 Pro', '1.5.0', None),
+                                          ('X4', '1.3.3', 'backup'), ('X3', '1.3.2', None),
+                                          ('X3', 'unreviewed-newer', 'backup'), ('Sticky', '1.6.0', None),
+                                          ('X3', 1.6, None), (None, '1.6.1', None)):
+            with self.subTest(model=model, firmware=firmware):
+                self.assertEqual(schema.access(model, firmware), expected)
+                self.assertEqual(schema.supports_configuration(model, firmware), expected == 'edit')
+
+    def test_backup_only_release_reads_raw_backs_up_and_restores_without_editing(self):
+        # Older layouts may carry keys that the audited codec would reject.
+        legacy = b'{"lineSpacing":1,"deviceName":"Example reader","futureOption":[1,2]}\n'
+        self.settings.write_bytes(legacy)
+        with patch.object(volume, 'ensure_separate_storage'):
+            with self.assertRaises(config.ConfigError):
+                self.open()
+            ref = volume.open_card(str(self.card), 'X3', '1.5.0', True)
+            snap = config.read_settings(ref)
+            self.assertEqual((snap['access'], snap['firmware'], snap['fields'], snap['capabilities']),
+                             ('backup', '1.5.0', [], []))
+            self.assertEqual(snap['profile'], 'crossink-1.5.0-backup')
+            for call in (lambda: config.preview_plan(ref, snap['token'], {'deviceName': 'Example changed'}),
+                         lambda: config.apply_changes(ref, snap['token'], {'deviceName': 'Example changed'}),
+                         lambda: helper.dispatch(dict(protocol=2, action='config.apply', root=ref, expected=snap['token'],
+                                                      changes={'deviceName': 'Example changed'}))):
+                with self.assertRaises(config.ConfigError) as error:
+                    call()
+                self.assertEqual(error.exception.code, 'backup_only')
+            self.assertEqual(self.settings.read_bytes(), legacy)
+            backup = snapshots.create_snapshot(ref)['backup_id']
+            listed = {entry['id']: entry for entry in snapshots.list_snapshots(ref)}
+            self.assertEqual((listed[backup]['firmware'], listed[backup]['can_restore']), ('1.5.0', True))
+            self.settings.write_bytes(b'{"deviceName":"Example later"}\n')
+            plan = snapshots.preview_restore(ref, backup)
+            self.assertEqual([row['key'] for row in plan['differences']], ['settings.__file__'])
+            self.assertEqual(plan['fields'], [])
+            result = snapshots.restore_snapshot(ref, backup, plan['expected'], plan['backup_sha256'])
+            self.assertTrue(result['changed'])
+            self.assertEqual(self.settings.read_bytes(), legacy)
+            # A backup is restorable only with the same confirmed release.
+            self.settings.write_bytes(b'{"deviceName":"Example reader"}\n')
+            other = volume.open_card(str(self.card), 'X3', '1.6.1', True)
+            entry = {item['id']: item for item in snapshots.list_snapshots(other)}[backup]
+            self.assertFalse(entry['can_restore'])
+            with self.assertRaises(config.ConfigError) as error:
+                snapshots.preview_restore(other, backup)
+            self.assertEqual(error.exception.code, 'snapshot_profile')
+
+    def test_reader_must_exist_in_the_selected_release(self):
+        for model, firmware in (('X4 Pro', '1.5.0'), ('X4 Classic', '1.4.0'), ('X3', '1.2.11')):
+            with self.subTest(model=model, firmware=firmware), patch.object(volume, '_query') as query:
+                with self.assertRaises(config.ConfigError) as error:
+                    volume.open_card(str(self.card), model, firmware, True)
+                self.assertEqual(error.exception.code, 'profile')
+                query.assert_not_called()
 
     def test_internal_virtual_fixed_unknown_readonly_and_nonfat_are_rejected(self):
         original_info, original_part = self.info.copy(), self.part.copy()

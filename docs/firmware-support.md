@@ -4,11 +4,32 @@ InkKit aims to keep supporting new CrossInk releases and XTEINK devices. A versi
 number in the app identifies a **reviewed storage contract**, not a permanent
 limit on the project and not a guarantee that unknown future firmware works.
 
-## Current reviewed contract
+## Pinned releases
 
-| Firmware | Source pin | Intended models | Physical evidence |
-| --- | --- | --- | --- |
-| CrossInk 1.6.1 | `9914146eeae7b46b300f475a16c32426fc02ec1f` | X3, X4, X4 Classic, X4 Pro | Selected owner-reported X3 preferences/Restore/eject; other settings/models pending |
+`crossink_contracts.py` lists every release the app accepts. **Edit** means the
+audited schema/codec is implemented. **Backup only** means exact-byte complete
+configuration backups and same-reader, same-release restore; settings are not
+interpreted, shown or edited. Models follow the release that first shipped their
+firmware. Physical evidence is separate from both.
+
+| Firmware | Source pin | Access | Models | Physical evidence |
+| --- | --- | --- | --- | --- |
+| CrossInk 1.6.1 | `9914146eeae7b46b300f475a16c32426fc02ec1f` | Edit | X3, X4, X4 Classic, X4 Pro | Selected owner-reported X3 preferences/Restore/eject; other settings/models pending |
+| CrossInk 1.6.0 | `b25beb13761d5851f98e7eada09aa5e7d430df48` | Backup only | X3, X4, X4 Classic, X4 Pro | None |
+| CrossInk 1.5.1 | `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` | Backup only | X3, X4, X4 Classic, X4 Pro | None |
+| CrossInk 1.5.0 | `0de623ed24acd94ae2301e8e1f4a42e32613110b` | Backup only | X3, X4 | None |
+| CrossInk 1.4.0.1 | `54ba245fe8b6dbfcc566edfd175eb36d76c644ad` | Backup only | X3, X4 | None |
+| CrossInk 1.4.0 | `b7f6708f96d05e5851f8bcfaaf57bc0e91dc0567` | Backup only | X3, X4 | None |
+| CrossInk 1.3.4 | `994fb4b9fa7703d38efa0ef8b0ec8319595bd9b2` | Backup only | X3, X4 | None |
+| CrossInk 1.3.3 | `26dc77513c2e277f03458e00d335867140d1e89f` | Backup only | X3, X4 | None |
+| Newer than 1.6.1 (unreviewed) | None | Backup only | X3, X4, X4 Classic, X4 Pro | None |
+
+Releases before 1.3.3 keep reader settings in `settings.json`, a name other
+firmware also uses, so they are not listed. The storage history that shaped these
+eras: v1.2.7 moved OPDS servers to `opds.json`; v1.3.3 moved settings to
+`crossink-settings.json`; v1.4.0 adopted freeink-sdk; v1.5.0 greatly expanded
+settings; v1.5.1 shipped X4 Classic/X4 Pro firmware; v1.6.1 added
+`ttf-rendering.json`. Backup-only releases export no hardware capabilities.
 
 The SDK capability pin is `699370183fa3a0e33c9cb83a36f701bbb6022095`.
 Its board definitions give no frontlight/touch to X3, X4 or X4 Classic; X4 Pro has
@@ -26,9 +47,10 @@ there is no second Swift device list or hardcoded firmware confirmation. All sto
 snapshots carry the selected model's capabilities, so changing categories cannot
 accidentally expose another model's hardware page.
 
-The current engine implements **one** audited provider. Adding metadata/version
-strings alone does not implement another storage contract: `supports_configuration`
-continues to reject unknown firmware/models before disk queries or writes. A future
+The current engine implements **one** editable provider. Adding a release to the
+registry only enables backup-only access; `supports_configuration` still rejects
+editing for every other release, and unlisted firmware/models fail before disk
+queries or writes. A future
 provider needs its schema, codecs, store paths, migration/default behavior and
 explicit dispatch, with catalogue entries matching what is actually implemented.
 No remote executable/profile downloads, nearest-version fallback or nightly
@@ -36,7 +58,10 @@ compatibility promise are implemented.
 
 ## Adding a firmware release or reader
 
-1. Pin the official release/tag and commit plus SDK/submodule commits. Review the
+1. Pin the official release/tag and commit plus SDK/submodule commits. Run
+   `scripts/extract_crossink_contract.py --repo <checkout> --compare` against a
+   local CrossInk clone for a first summary of store paths, settings keys, build
+   environments and SDK changes. It is a heuristic aid, not a schema. Review the
    settings catalog, definitions, serializers/loaders, independent stores and real
    board capabilities. Enumerate additions, removals, type/ID/default/path changes,
    hardware predicates and intentional runtime-only exclusions.
@@ -57,8 +82,11 @@ compatibility promise are implemented.
 
 ## Unlisted firmware or model
 
-Do not confirm a false version to bypass the app's gate. Settings editing remains
-blocked until the contract is reviewed and implemented. The separate opaque-file
+Do not confirm a false version to bypass the app's gate. For a release newer than
+v1.6.1, choose **Newer than CrossInk v1.6.1 (unreviewed)** to keep complete
+backups; settings editing remains blocked until the contract is reviewed and
+implemented. That option assumes the newer release still keeps
+`crossink-settings.json`; opening fails closed otherwise. The separate opaque-file
 migration CLI can still diagnose/back up a layout-compatible card when its own
 safety/layout checks pass; these operations do not claim to understand the newer
 settings schema. Keep the original card and backups. Do not downgrade firmware or

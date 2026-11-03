@@ -23,7 +23,9 @@ CrossInk v1.6.1 field/storage/model contract and primary source links.
 ## Storage boundary
 
 A real card must be selected explicitly, directly under `/Volumes`, and the user
-must select X3/X4/X4 Classic/X4 Pro and confirm CrossInk v1.6.1. A directory name
+must select a listed CrossInk release and a reader shipped in that release, then
+confirm both. Only v1.6.1 is editable; the other releases are backup-only (see
+below). A directory name
 cannot prove the reader model or firmware. The adapter requires a namespaced
 CrossInk settings file, external writable removable USB/SD media <=2 TiB, one
 mounted FAT32/exFAT partition, a readable UUID and no backup/Time Machine markers.
@@ -144,7 +146,12 @@ never recursively removes arbitrary paths. Legacy single-file recovery formats a
 strict restore behavior remain available with explicit scope labels.
 
 `profiles.describe` exports the implemented source-reviewed firmware, model and
-capability catalogue. The native app uses that metadata for selectors and hardware
+capability catalogue from `crossink_contracts.py`. Each release states its access:
+`edit` for the audited v1.6.1 schema/codec, or `backup` for exact-byte complete
+snapshots only. Backup-only sessions parse stores as bounded JSON/UTF-8 without
+field interpretation, export no fields or capabilities, reject every per-store
+preview/apply/restore with `backup_only` and record the release in snapshot
+manifests, so restore requires the same model and release. The native app uses that metadata for selectors and hardware
 page visibility. The current provider remains the audited v1.6.1 schema/codec;
 new contracts require implemented dispatch and tests, not optimistic version aliases.
 See [support policy](firmware-support.md) and [backup UI](macos-preview.md#complete-configuration-backups).

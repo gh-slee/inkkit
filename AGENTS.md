@@ -13,8 +13,9 @@ is separate from implementation scope. Only X3 has reviewed physical acceptance.
 ## Working agreement
 
 - Keep the bundled firmware/model/capability catalogue authoritative for the UI.
-  New contracts require upstream schema/codec review and tests before writes;
-  unknown versions stay blocked. See docs/firmware-support.md.
+  New contracts require upstream schema/codec review and tests before writes.
+  Other pinned releases are backup-only; unlisted versions stay blocked except
+  the explicit unreviewed-newer backup option. See docs/firmware-support.md.
 
 
 - Inspect the working tree first and preserve existing work and private backups.
@@ -61,7 +62,7 @@ is separate from implementation scope. Only X3 has reviewed physical acceptance.
 ```bash
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py inkkit_snapshots.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py crossink_contracts.py inkkit_volume.py inkkit_snapshots.py scripts tests
 python3 scripts/check_configuration_docs.py
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged

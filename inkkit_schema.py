@@ -2,6 +2,7 @@
 from copy import deepcopy
 import re
 
+import crossink_contracts as contracts
 from crossink_profile import ACTION_VALUES, BASE_FIELDS, FIRMWARE_VERSION, LANGUAGES, MEMBER_DEFAULTS, UPSTREAM_COMMIT
 
 MODELS = {
@@ -21,25 +22,64 @@ STORES = {
 
 PROFILE_ID = 'crossink-' + FIRMWARE_VERSION + '-preview'
 SDK_COMMIT = '699370183fa3a0e33c9cb83a36f701bbb6022095'
+CONTRACTS = {release['firmware']: release for release in contracts.RELEASES + (contracts.UNREVIEWED,)}
+if (CONTRACTS[FIRMWARE_VERSION]['access'] != 'edit' or CONTRACTS[FIRMWARE_VERSION]['commit'] != UPSTREAM_COMMIT
+        or CONTRACTS[FIRMWARE_VERSION]['sdk'] != SDK_COMMIT
+        or [key for key, value in CONTRACTS.items() if value['access'] == 'edit'] != [FIRMWARE_VERSION]):
+    raise ImportError('Only the audited schema/codec release may be editable.')
+
+
+def profile_id(firmware):
+    if firmware == FIRMWARE_VERSION:
+        return PROFILE_ID
+    return 'crossink-' + firmware + '-backup'
+
+
+def _contract(model, firmware):
+    if type(model) is not str or type(firmware) is not str:
+        return None
+    release = CONTRACTS.get(firmware)
+    return release if release is not None and model in release['models'] and model in MODELS else None
+
+
+def access(model, firmware):
+    """'edit', 'backup' or None. Unknown model/version pairs are never guessed."""
+    release = _contract(model, firmware)
+    return release['access'] if release else None
+
+
+def capabilities(model, firmware):
+    # Hardware pages are reviewed only for the editable contract's SDK pin.
+    return sorted(MODELS[model]) if access(model, firmware) == 'edit' else []
 
 
 def profile_catalog():
-    """Implemented, source-reviewed contracts; never infer future compatibility.
+    """Source-pinned releases with what this engine implements for each one.
 
-    New storage contracts require a schema/codec provider and its tests, not merely
-    a version alias. The native UI consumes this metadata rather than its own lists.
+    Only the audited release is editable. Other releases allow exact-byte complete
+    backups and same-reader restore; adding a version alias never enables editing.
+    The native UI consumes this metadata rather than its own lists.
     """
-    return dict(profiles=[dict(id=PROFILE_ID, firmware=FIRMWARE_VERSION,
-                              upstream_commit=UPSTREAM_COMMIT, sdk_commit=SDK_COMMIT,
-                              models=[dict(id=model, label=model, capabilities=sorted(capabilities))
-                                      for model, capabilities in MODELS.items()])],
+    def label(release):
+        if release is contracts.UNREVIEWED:
+            return 'Newer than CrossInk v' + contracts.RELEASES[0]['firmware'] + ' (unreviewed)'
+        return 'CrossInk v' + release['firmware'] + ('' if release['access'] == 'edit' else ' (backup only)')
+    return dict(profiles=[dict(id=profile_id(release['firmware']), firmware=release['firmware'], label=label(release),
+                              access=release['access'], upstream_commit=release['commit'], sdk_commit=release['sdk'],
+                              models=[dict(id=model, label=model, capabilities=capabilities(model, release['firmware']))
+                                      for model in release['models']])
+                          for release in CONTRACTS.values()],
                 unknown_policy='settings_blocked_use_cli_backup_diagnostics')
 
 
 def supports_configuration(model, firmware):
-    # This bundled engine implements the current audited provider only. A future
-    # provider must be wired to its own schema/codec before exposing its catalogue.
-    return type(model) is str and type(firmware) is str and model in MODELS and firmware == FIRMWARE_VERSION
+    # Editing requires the audited schema/codec. Other releases need their own
+    # reviewed provider and tests before this can return True for them.
+    return access(model, firmware) == 'edit'
+
+
+def supports_backup(model, firmware):
+    return access(model, firmware) is not None
 
 
 STATUS_ITEMS = ('Empty', 'Clock', 'Battery', 'Time left in book', 'Time left in chapter',

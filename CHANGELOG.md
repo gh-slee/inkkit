@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Accept every CrossInk release from v1.3.3 to v1.6.1, pinned to upstream
+  commits and SDK pins, plus an explicit unreviewed-newer option. Only v1.6.1 is
+  editable; the others open backup-only, with complete exact-byte backups and
+  same-reader, same-release restore. Readers follow their first shipping release.
+  Add a read-only release survey script for upstream reviews.
+
 - Standardize PR descriptions with a canonical review template, shared authoring
   instructions, explicit complete-body submission and a standard-library structure/
   privacy checker. Add synthetic regressions and a separate read-only workflow

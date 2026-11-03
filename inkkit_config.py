@@ -98,7 +98,10 @@ def parse_object(data):
         raise ConfigError('invalid_json', 'Settings must be a bounded, valid UTF-8 JSON object without duplicate keys.') from None
 
 
-def _document(data, store='settings'):
+def _document(data, store='settings', strict=True):
+    """Parse a store. Non-strict parsing is only for exact-byte backups of
+    releases whose schema this engine has not reviewed: bounded, valid data,
+    with no interpretation of fields."""
     if data is None:
         doc = {'path': ''} if store == 'dictionary' else {}
     elif store == 'dictionary':
@@ -108,6 +111,8 @@ def _document(data, store='settings'):
             raise ConfigError('invalid_json', 'The dictionary path is not valid UTF-8.') from None
     else:
         doc = parse_object(data)
+    if not strict:
+        return doc
     if store == 'settings' and any(key in doc for key in ('lineSpacing', 'screenMargin', 'sleepTimeout')):
         raise ConfigError('legacy_settings', 'Legacy settings need firmware migration before editing.')
     try:
@@ -252,6 +257,7 @@ class _Workspace:
                 if {key: marker.get(key) for key in expected} != expected:
                     raise ConfigError('unsafe_workspace', 'The synthetic workspace identity or profile changed.')
                 self.model = self.model or marker.get('model', 'X3')
+                self.firmware = schema.FIRMWARE_VERSION
                 self.hostfd = self.fd
                 self.record_identity = _identity(info)
             else:
@@ -260,14 +266,17 @@ class _Workspace:
                 if self.model is not None and self.model != self.context['model']:
                     raise ConfigError('profile', 'The selected model differs from this card session.')
                 self.model = self.context['model']
+                self.firmware = self.context['firmware']
                 self.root = Path(self.context['root'])
                 self.fd = _open_directory(self.root)
                 info = os.fstat(self.fd)
                 self.hostfd = _open_directory(self.context['storage'])
                 self.record_identity = self.context['identity']
                 inkkit_volume.ensure_separate_storage(info, os.fstat(self.hostfd))
-            if self.model not in schema.MODELS:
+            if not schema.supports_backup(self.model, self.firmware):
                 raise ConfigError('profile', 'Choose a supported XTEINK model.')
+            self.editable = schema.supports_configuration(self.model, self.firmware)
+            self.profile = schema.profile_id(self.firmware)
             self.filename = schema.STORES[self.store][0]
             self.config = os.open('.crosspoint', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.fd)
             config_info = os.fstat(self.config)
@@ -290,7 +299,13 @@ class _Workspace:
             if current.identity != self.identity or current.config_identity != self.config_identity or current.record_identity != self.record_identity:
                 raise ConfigError('external_change', 'The card or workspace changed. Reload before continuing.')
 
+    def require_editable(self):
+        if not self.editable:
+            raise ConfigError('backup_only', 'Settings for this CrossInk version have not been reviewed. Complete backups and same-reader restore remain available; editing is blocked.')
+
     def fields(self, doc):
+        if not self.editable:
+            return ()
         return tuple(Field(**field) for field in schema.store_fields(self.store, self.model, doc))
 
     @contextmanager
@@ -324,7 +339,7 @@ class _Workspace:
             except FileNotFoundError:
                 continue
             raise ConfigError('recovery_pending', 'Firmware recovery files exist. Resolve them before editing settings.')
-        doc = _document(raw, self.store)
+        doc = _document(raw, self.store, self.editable)
         token = dict(root=self.identity, directory=self.config_identity, file=_identity(info) if info else None,
                      sha256=digest(raw) if raw is not None else None, mtime_ns=info.st_mtime_ns if info else None, size=info.st_size if info else 0, store=self.store)
         return raw, doc, token
@@ -446,8 +461,9 @@ def read_settings(root, store='settings', model=None):
     with _Workspace(root, store, model) as workspace:
         _, doc, token = workspace.snapshot()
         fields = [field.public() for field in workspace.fields(doc)]
-        return dict(profile=PROFILE, firmware=schema.FIRMWARE_VERSION, synthetic=workspace.synthetic,
-                    model=workspace.model, capabilities=sorted(schema.MODELS[workspace.model]), store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
+        return dict(profile=workspace.profile, firmware=workspace.firmware, synthetic=workspace.synthetic,
+                    access='edit' if workspace.editable else 'backup',
+                    model=workspace.model, capabilities=schema.capabilities(workspace.model, workspace.firmware), store=store, stores=[dict(id=key, label=value[1]) for key, value in schema.STORES.items()],
                     fields=fields, values=codec.values(doc, store, fields), token=token,
                     has_plaintext=_has_plaintext(doc), label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
 
@@ -474,6 +490,7 @@ def _plan(workspace, doc, changes, allow_plaintext=True):
 
 def preview_plan(root, expected, changes, store='settings', model=None):
     with _Workspace(root, store, model) as workspace:
+        workspace.require_editable()
         _, doc, _ = workspace.require(expected)
         updated, diff, _ = _plan(workspace, doc, changes)
         return dict(differences=diff, requires_plaintext=bool(_has_plaintext(updated)))
@@ -487,6 +504,7 @@ def apply_changes(root, expected, changes, store='settings', model=None, allow_p
     if type(allow_plaintext) is not bool:
         raise ConfigError('consent', 'Plaintext handoff requires explicit boolean consent for this apply.')
     with _Workspace(root, store, model) as workspace, workspace.lock():
+        workspace.require_editable()
         raw, doc, _ = workspace.require(expected)
         updated_doc, diff, _ = _plan(workspace, doc, changes, allow_plaintext)
         if updated_doc == doc:
@@ -545,6 +563,7 @@ def _restore_source(workspace, current, backup_id):
 
 def restore_requires_plaintext(root, expected, backup_id, store='settings'):
     with _Workspace(root, store) as workspace:
+        workspace.require_editable()
         current, _, _ = workspace.require(expected)
         original, before, _ = _restore_source(workspace, current, backup_id)
         return current != original and _has_plaintext(before)
@@ -552,6 +571,7 @@ def restore_requires_plaintext(root, expected, backup_id, store='settings'):
 
 def preview_restore(root, expected, backup_id, store='settings', model=None):
     with _Workspace(root, store, model) as workspace:
+        workspace.require_editable()
         current, doc, _ = workspace.require(expected)
         original, before, record = _restore_source(workspace, current, backup_id)
         fields = [field.public() for field in workspace.fields(doc)]
@@ -565,6 +585,7 @@ def restore_backup(root, expected, backup_id, store='settings', model=None, allo
     if type(allow_plaintext) is not bool:
         raise ConfigError('consent', 'Plaintext handoff requires explicit boolean consent for this restore.')
     with _Workspace(root, store, model) as workspace, workspace.lock():
+        workspace.require_editable()
         current, _, _ = workspace.require(expected)
         raw, before, record = _restore_source(workspace, current, backup_id)
         if current == raw:
