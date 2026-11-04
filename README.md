@@ -48,7 +48,9 @@ migration CLI release**, and does not include the app.
 | **Keep complete configuration backups** | Back up all six global stores, browse timestamped local history, restore an older compatible snapshot or confirm deletion of a local backup. |
 | **Review before writing** | Inspect changes, preserve the original state, verify saved bytes and eject the card safely. New or retained plaintext credentials need explicit consent for each write. |
 
-The audited app profile covers **CrossInk v1.6.1** on **X3, X4, X4 Classic and X4 Pro**.
+Settings editing covers **CrossInk v1.6.1**, with reviewed subsets for **v1.6.0 and
+v1.5.1**; v1.3.3 to v1.5.0 and newer unreviewed releases open **backup-only**. Readers:
+**X3 and X4**, plus **X4 Classic and X4 Pro** from v1.5.1.
 Only X3 has limited owner-reported physical acceptance; other models remain
 untested. [Support policy](docs/firmware-support.md) · [Validation evidence](docs/configuration-validation.md).
 This project is not affiliated with XTEINK, CrossInk or CrossPoint.
@@ -77,7 +79,8 @@ See [complete build instructions and packaging limits](docs/macos-preview.md).
 1. Choose **Create synthetic demo** to explore the app without a card.
 2. For your reader, keep a separate verified full-card backup, shut down the reader
    and insert its card into a separate SD reader. Choose **Open SD card**, select
-   the mounted root and confirm the actual model and firmware version.
+   the mounted root and confirm the actual model and the CrossInk version running
+   on the reader. For a backup-only version, the app shows only Overview and Backups.
 3. Use **Backups → Backup now** before editing. Change one preference, review it
    and choose **Back up & apply**. After **Eject** succeeds, return the card to the
    shut-down reader and verify the result there.
@@ -112,6 +115,15 @@ loads reviewed firmware/model choices and hardware capabilities from its bundled
 backend catalogue. The currently audited contract is **CrossInk v1.6.1** for X3,
 X4, X4 Classic and X4 Pro. Unsupported hardware pages are hidden where appropriate:
 X3, X4 and X4 Classic have no Frontlight page; X4 Pro has it.
+
+CrossInk v1.6.0 and v1.5.1 open with a reviewed subset of settings: 82 (v1.6.0)
+or 81 (v1.5.1) main settings that are unchanged from v1.6.1, plus Wi-Fi, OPDS,
+reading sync and dictionary. CrossInk v1.3.3 to v1.5.0, and a confirmed release newer than v1.6.1, can be
+opened in **backup-only** mode: complete configuration backups and exact restore
+to the same reader and release, with no settings view or editing. Each listed
+release is pinned to its upstream tag/commit, and its models follow that
+release's changelog (X4 Classic and X4 Pro start at v1.5.1). Releases before
+v1.3.3 use a settings filename shared with other firmware and stay unsupported.
 
 New releases/devices need an upstream settings/capability review, schema/codec
 changes where needed and compatibility tests before configuration writes are

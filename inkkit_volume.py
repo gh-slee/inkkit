@@ -135,8 +135,8 @@ def _session_directory(create=False):
 
 
 def open_card(root, model, firmware, confirmed):
-    if not schema.supports_configuration(model, firmware) or confirmed is not True:
-        raise _error('profile', 'Confirm the reader model and the supported CrossInk firmware version before opening the card.')
+    if not schema.supports_backup(model, firmware) or confirmed is not True:
+        raise _error('profile', 'Confirm the reader model and a listed CrossInk firmware version before opening the card.')
     context = _inspect(root, model)
     from inkkit_config import _Workspace, _document, _json_bytes, _open_directory, _read_at, _write_new
     # Recognize the namespaced CrossInk configuration before creating host state.
@@ -146,7 +146,8 @@ def open_card(root, model, firmware, confirmed):
         config = os.open('.crosspoint', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
         if os.fstat(config).st_dev != os.fstat(fd).st_dev:
             raise _error('identity', 'The configuration directory is on an unexpected device.')
-        _document(_read_at(config, 'crossink-settings.json', require_owner=False)[0])
+        _document(_read_at(config, 'crossink-settings.json', require_owner=False)[0], 'settings',
+                  firmware if schema.supports_configuration(model, firmware) else None)
     finally:
         if config is not None:
             os.close(config)
@@ -182,7 +183,7 @@ def session_context(reference):
         saved = parse_object(_read_at(fd, token + '.json')[0])
     finally:
         os.close(fd)
-    if not schema.supports_configuration(saved.get('model'), saved.get('firmware')):
+    if not schema.supports_backup(saved.get('model'), saved.get('firmware')):
         raise _error('profile', 'This card session has an unsupported firmware profile.')
     current = _inspect(saved.get('root', ''), saved['model'])
     if current['live'] != saved.get('live') or current['identity'] != saved.get('identity'):
@@ -198,7 +199,7 @@ def session_context(reference):
         ensure_separate_storage(Path(current['root']).stat(), info)
     finally:
         os.close(hostfd)
-    current['storage'] = str(expected)
+    current.update(storage=str(expected), firmware=saved['firmware'])
     return current
 
 

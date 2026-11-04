@@ -11,6 +11,9 @@ import unittest
 from unittest.mock import patch
 
 import inkkit_config as config
+import inkkit_helper as helper
+import inkkit_schema as schema
+import inkkit_snapshots as snapshots
 import inkkit_volume as volume
 
 
@@ -196,6 +199,128 @@ class VolumeTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 'profile')
                 query.assert_not_called()
         self.assertFalse((self.host / 'InkKit').exists())
+
+    def test_release_catalogue_only_reviewed_releases_are_editable(self):
+        catalog = schema.profile_catalog()['profiles']
+        self.assertEqual([item['firmware'] for item in catalog if item['access'] == 'edit'], [schema.FIRMWARE_VERSION, '1.6.0', '1.5.1'])
+        self.assertEqual(catalog[0]['firmware'], schema.FIRMWARE_VERSION)
+        self.assertEqual({item['firmware']: item['stores'] for item in catalog}['1.6.0'],
+                         ['settings', 'wifi', 'opds', 'koreader', 'dictionary'])
+        self.assertEqual(catalog[-1]['firmware'], 'unreviewed-newer')
+        for item in catalog:
+            self.assertEqual(item['id'], schema.profile_id(item['firmware']))
+            if item['access'] != 'edit':
+                self.assertTrue(all(model['capabilities'] == [] for model in item['models']))
+        for model, firmware, expected in (('X3', '1.6.1', 'edit'), ('X4 Pro', '1.6.0', 'edit'), ('X3', '1.5.1', 'edit'), ('X3', '1.5.0', 'backup'),
+                                          ('X4 Classic', '1.5.1', 'edit'), ('X4 Pro', '1.5.0', None),
+                                          ('X4', '1.3.3', 'backup'), ('X3', '1.3.2', None),
+                                          ('X3', 'unreviewed-newer', 'backup'), ('Sticky', '1.6.0', None),
+                                          ('X3', 1.6, None), (None, '1.6.1', None)):
+            with self.subTest(model=model, firmware=firmware):
+                self.assertEqual(schema.access(model, firmware), expected)
+                self.assertEqual(schema.supports_configuration(model, firmware), expected == 'edit')
+
+    def test_backup_only_release_reads_raw_backs_up_and_restores_without_editing(self):
+        # Older layouts may carry keys that the audited codec would reject.
+        legacy = b'{"lineSpacing":1,"deviceName":"Example reader","futureOption":[1,2]}\n'
+        self.settings.write_bytes(legacy)
+        with patch.object(volume, 'ensure_separate_storage'):
+            with self.assertRaises(config.ConfigError):
+                self.open()
+            ref = volume.open_card(str(self.card), 'X3', '1.5.0', True)
+            snap = config.read_settings(ref)
+            self.assertEqual((snap['access'], snap['firmware'], snap['fields'], snap['capabilities']),
+                             ('backup', '1.5.0', [], []))
+            self.assertEqual(snap['profile'], 'crossink-1.5.0-backup')
+            for call in (lambda: config.preview_plan(ref, snap['token'], {'deviceName': 'Example changed'}),
+                         lambda: config.apply_changes(ref, snap['token'], {'deviceName': 'Example changed'}),
+                         lambda: helper.dispatch(dict(protocol=2, action='config.apply', root=ref, expected=snap['token'],
+                                                      changes={'deviceName': 'Example changed'}))):
+                with self.assertRaises(config.ConfigError) as error:
+                    call()
+                self.assertEqual(error.exception.code, 'backup_only')
+            self.assertEqual(self.settings.read_bytes(), legacy)
+            backup = snapshots.create_snapshot(ref)['backup_id']
+            listed = {entry['id']: entry for entry in snapshots.list_snapshots(ref)}
+            self.assertEqual((listed[backup]['firmware'], listed[backup]['can_restore']), ('1.5.0', True))
+            self.settings.write_bytes(b'{"deviceName":"Example later"}\n')
+            plan = snapshots.preview_restore(ref, backup)
+            self.assertEqual([row['key'] for row in plan['differences']], ['settings.__file__'])
+            self.assertEqual(plan['fields'], [])
+            result = snapshots.restore_snapshot(ref, backup, plan['expected'], plan['backup_sha256'])
+            self.assertTrue(result['changed'])
+            self.assertEqual(self.settings.read_bytes(), legacy)
+            # A backup is restorable only with the same confirmed release.
+            self.settings.write_bytes(b'{"deviceName":"Example reader"}\n')
+            other = volume.open_card(str(self.card), 'X3', '1.6.1', True)
+            entry = {item['id']: item for item in snapshots.list_snapshots(other)}[backup]
+            self.assertFalse(entry['can_restore'])
+            with self.assertRaises(config.ConfigError) as error:
+                snapshots.preview_restore(other, backup)
+            self.assertEqual(error.exception.code, 'snapshot_profile')
+
+    def test_v151_subset_excludes_settings_added_in_v160(self):
+        self.settings.write_bytes(b'{"deviceName":"Example reader","sideButtonLayout":1,"twoFingerRotationEnabled":0}\n')
+        with patch.object(volume, 'ensure_separate_storage'):
+            ref = volume.open_card(str(self.card), 'X4 Classic', '1.5.1', True)
+            snap = config.read_settings(ref)
+            self.assertEqual((snap['access'], snap['profile']), ('edit', 'crossink-1.5.1-preview'))
+            self.assertEqual({field['key'] for field in snap['fields']}, set(schema.RELEASE_SETTINGS['1.5.1']))
+            self.assertNotIn('twoFingerRotationEnabled', {field['key'] for field in snap['fields']})
+            with self.assertRaises(config.ConfigError) as error:
+                config.preview_plan(ref, snap['token'], {'twoFingerRotationEnabled': 1})
+            self.assertEqual(error.exception.code, 'unsupported_field')
+            config.apply_changes(ref, snap['token'], {'deviceName': 'Example changed'})
+            self.assertEqual(json.loads(self.settings.read_bytes()),
+                             dict(deviceName='Example changed', sideButtonLayout=1, twoFingerRotationEnabled=0))
+
+    def test_v160_edits_only_reviewed_settings_and_preserves_its_own_layout(self):
+        # Side-button layouts and individual status-bar keys are current v1.6.0 data.
+        original = {'deviceName': 'Example reader', 'sideButtonLayout': 2, 'sideButtonLongPress': 1,
+                    'statusBarBattery': 1, 'statusBarTitle': 2, 'xtcStatusBarMode': 2, 'shortPwrBtn': 5,
+                    'fontSize': 14, 'uiTheme': 6}
+        raw = (json.dumps(original) + '\n').encode()
+        self.settings.write_bytes(raw)
+        with patch.object(volume, 'ensure_separate_storage'):
+            with self.assertRaises(config.ConfigError):
+                self.open()
+            ref = volume.open_card(str(self.card), 'X4 Pro', '1.6.0', True)
+            snap = config.read_settings(ref)
+            self.assertEqual((snap['access'], snap['firmware'], snap['profile']), ('edit', '1.6.0', 'crossink-1.6.0-preview'))
+            self.assertEqual(snap['capabilities'], sorted(schema.MODELS['X4 Pro']))
+            self.assertNotIn('ttf', [store['id'] for store in snap['stores']])
+            keys = {field['key'] for field in snap['fields']}
+            self.assertEqual(keys, set(schema.RELEASE_SETTINGS['1.6.0']))
+            theme = next(field for field in snap['fields'] if field['key'] == 'uiTheme')
+            self.assertNotIn(7, [value for value, _ in theme['choices']])
+            for changes, code in (({'shortPwrBtn': 6}, 'unsupported_field'), ({'fontSize': 16}, 'unsupported_field'),
+                                  ({'readerStatusBars.bottom.slots.0': 1}, 'unsupported_field'),
+                                  ({'uiTheme': 7}, 'invalid_value')):
+                with self.subTest(changes=changes), self.assertRaises(config.ConfigError) as error:
+                    config.preview_plan(ref, snap['token'], changes)
+                self.assertEqual(error.exception.code, code)
+            result = config.apply_changes(ref, snap['token'], {'deviceName': 'Example changed', 'uiTheme': 5})
+            self.assertEqual(json.loads(self.settings.read_bytes()), dict(original, deviceName='Example changed', uiTheme=5))
+            self.assertEqual(config.read_settings(ref)['values']['deviceName'], 'Example changed')
+            config.restore_backup(ref, result['snapshot']['token'], result['backup_id'])
+            self.assertEqual(self.settings.read_bytes(), raw)
+            ttf = config.read_settings(ref, 'ttf')
+            self.assertEqual(ttf['fields'], [])
+            with self.assertRaises(config.ConfigError) as error:
+                config.preview_plan(ref, ttf['token'], {'profiles.0.enabled': 1}, 'ttf')
+            self.assertEqual(error.exception.code, 'store')
+            backup = snapshots.create_snapshot(ref)['backup_id']
+            entry = {item['id']: item for item in snapshots.list_snapshots(ref)}[backup]
+            self.assertEqual((entry['firmware'], entry['can_restore']), ('1.6.0', True))
+            self.assertEqual(snapshots.preview_restore(ref, backup)['differences'], [])
+
+    def test_reader_must_exist_in_the_selected_release(self):
+        for model, firmware in (('X4 Pro', '1.5.0'), ('X4 Classic', '1.4.0'), ('X3', '1.2.11')):
+            with self.subTest(model=model, firmware=firmware), patch.object(volume, '_query') as query:
+                with self.assertRaises(config.ConfigError) as error:
+                    volume.open_card(str(self.card), model, firmware, True)
+                self.assertEqual(error.exception.code, 'profile')
+                query.assert_not_called()
 
     def test_internal_virtual_fixed_unknown_readonly_and_nonfat_are_rejected(self):
         original_info, original_part = self.info.copy(), self.part.copy()

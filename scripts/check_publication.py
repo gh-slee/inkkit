@@ -32,6 +32,7 @@ PUBLIC_PATHS = {
     'tests/test_config_stores.py', 'tests/test_config_volume.py',
     'scripts/check_configuration_docs.py', 'docs/configuration-reference.md',
     'docs/configuration-validation.md', 'inkkit_snapshots.py', 'tests/test_snapshots.py', 'docs/firmware-support.md',
+    'crossink_contracts.py', 'scripts/extract_crossink_contract.py', 'tests/test_extract_contract.py',
 }
 # Exact native captures reviewed with synthetic data only. Keep prior approved
 # hashes when replacing an image so reachable history remains auditable. This is

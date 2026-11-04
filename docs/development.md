@@ -22,7 +22,7 @@ git clone https://github.com/gh-slee/inkkit.git
 cd inkkit
 python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
-python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py inkkit_volume.py inkkit_snapshots.py scripts tests
+python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py crossink_contracts.py inkkit_volume.py inkkit_snapshots.py scripts tests
 python3 xteink_sd_migrate.py --version
 python3 xteink_sd_migrate.py --help
 ```

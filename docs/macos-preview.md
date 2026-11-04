@@ -55,12 +55,21 @@ cannot supply a trusted location, demo creation stops without writing there.
 
 Keep a separate verified full backup first. Shut down the reader and put its current
 card in a separate SD reader. Choose **Open SD card**, select the mounted volume
-itself under `/Volumes`, choose the reader model and confirm CrossInk v1.6.1.
+itself under `/Volumes`, choose the CrossInk version and reader model, then confirm
+them. CrossInk v1.6.1 opens for editing. CrossInk v1.6.0 and v1.5.1 open with
+selected settings only; pages without reviewed settings for that version (such as Status bars and
+Font rendering) are hidden. Other listed versions, including
+"Newer than CrossInk v1.6.1 (unreviewed)", open backup-only: only Overview and
+Backups appear, and complete backups restore to the same reader and version.
+Backup-only screens suggest updating the reader to the latest editable CrossInk
+version on the reader itself; for an unreviewed newer version they explain that
+a later InkKit update can add editing.
 A **Confirm your reader** sheet must show the model selector, firmware checkbox,
 Cancel and Open card. Until you confirm, the card has not been opened. If an older
 build displays an empty sheet, quit it and rebuild into a fresh output directory.
 The app cannot detect this firmware/model from the card; do not guess. Unsupported
-versions/layouts, ambiguous devices and pending firmware recovery files are blocked.
+versions/layouts, models not shipped in the chosen version, ambiguous devices and
+pending firmware recovery files are blocked.
 
 The selected root must be a real mount boundary and exactly match the mount path
 reported by macOS. Some plist responses omit `Mounted`; its absence alone is not

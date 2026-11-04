@@ -2,6 +2,7 @@
 from copy import deepcopy
 import re
 
+import crossink_contracts as contracts
 from crossink_profile import ACTION_VALUES, BASE_FIELDS, FIRMWARE_VERSION, LANGUAGES, MEMBER_DEFAULTS, UPSTREAM_COMMIT
 
 MODELS = {
@@ -21,25 +22,110 @@ STORES = {
 
 PROFILE_ID = 'crossink-' + FIRMWARE_VERSION + '-preview'
 SDK_COMMIT = '699370183fa3a0e33c9cb83a36f701bbb6022095'
+CONTRACTS = {release['firmware']: release for release in contracts.RELEASES + (contracts.UNREVIEWED,)}
+
+# Older editable releases expose only main settings whose upstream declaration,
+# persisted raw values and member default match the audited v1.6.1 catalogue.
+# Everything else in their files stays opaque and is preserved unchanged.
+# Reviewed against CrossInk v1.6.0 (b25beb13): SettingsList.h, CrossPointSettings.h/.cpp.
+RELEASE_SETTINGS = {
+    '1.6.0': frozenset((
+        'autoBackupStats', 'clockFormat', 'clockHasBeenSynced', 'clockUtcOffsetQ', 'customBootscreenEnabled',
+        'dateFormat', 'dateSeparator', 'deviceName', 'dictionaryFont', 'dictionaryFontSize',
+        'disableReaderTouchscreen', 'embeddedStyle', 'extraParagraphSpacing', 'fadingFix', 'fileBrowserDisplay',
+        'focusReadingEnabled', 'fontFamily', 'forceParagraphIndents', 'frontButtonBack', 'frontButtonConfirm',
+        'frontButtonLeft', 'frontButtonOrientationAware', 'frontButtonRight', 'frontlightBrightness', 'frontlightOn',
+        'frontlightRestoreOnWake', 'frontlightScheduleEnabled', 'frontlightScheduleEnd', 'frontlightScheduleStart',
+        'frontlightWarmth', 'guideReadingEnabled', 'hideBatteryPercentage', 'hideClock', 'hideFileExtension',
+        'homeButtonInReaderEnabled', 'hyphenationEnabled', 'imageRendering', 'indexingMethod', 'lineHeightPercent',
+        'longPressButtonBehavior', 'moveFinishedToReadFolder', 'nearbyReceiveFolder', 'opdsDownloadFolder',
+        'orientation', 'pageTurnGesture', 'paragraphAlignment', 'pinchFontResizeEnabled', 'previousPageGesture',
+        'publisherPageNumbers', 'pwrBtnFootnoteBack', 'quickResumeSleepScreen', 'readerFrontButtonBack',
+        'readerFrontButtonConfirm', 'readerFrontButtonLeft', 'readerFrontButtonRight', 'readerFrontButtonsEnabled',
+        'readingIdleTimeThresholdUnits', 'recentBooksView', 'refreshFrequency', 'removeReadBooksFromRecents',
+        'screenInverted', 'screenMarginHorizontal', 'screenMarginVertical', 'sdFontFamilyName', 'sdFontSizeRange',
+        'showHiddenFiles', 'sideButtonOrientationAware', 'sleepScreen', 'sleepScreenCoverFilter',
+        'sleepScreenCoverMode', 'sleepTimeoutMinutes', 'tapToHideStatusBar', 'textAntiAliasing',
+        'touchReaderControls', 'twoFingerRotationEnabled', 'twoFingerSwipeDown', 'twoFingerSwipeLeft',
+        'twoFingerSwipeRight', 'twoFingerSwipeUp', 'uiScale', 'uiTheme', 'wordSpacing')),
+}
+# Reviewed against v1.5.1 (4f2da6b7): the same declarations as v1.6.0 except that
+# two-finger rotation arrived in v1.6.0; v1.6.0 only added an atomic JSON writer.
+RELEASE_SETTINGS['1.5.1'] = RELEASE_SETTINGS['1.6.0'] - {'twoFingerRotationEnabled'}
+# Raw values that a release does not define for an otherwise matching field.
+RELEASE_REMOVED_CHOICES = {release: {'uiTheme': frozenset({7})}  # Cover Grid arrived in v1.6.1.
+                           for release in ('1.6.0', '1.5.1')}
+# ttf-rendering.json arrived in v1.6.1.
+RELEASE_STORES = {release: ('settings', 'wifi', 'opds', 'koreader', 'dictionary') for release in ('1.6.0', '1.5.1')}
+if (CONTRACTS[FIRMWARE_VERSION]['access'] != 'edit' or CONTRACTS[FIRMWARE_VERSION]['commit'] != UPSTREAM_COMMIT
+        or CONTRACTS[FIRMWARE_VERSION]['sdk'] != SDK_COMMIT
+        or {key for key, value in CONTRACTS.items() if value['access'] == 'edit'} != {FIRMWARE_VERSION} | set(RELEASE_SETTINGS)
+        or set(RELEASE_STORES) != set(RELEASE_SETTINGS)):
+    raise ImportError('Only releases with a reviewed schema/codec may be editable.')
+
+
+def release_stores(firmware):
+    return RELEASE_STORES.get(firmware, tuple(STORES)) if firmware in RELEASE_SETTINGS or firmware == FIRMWARE_VERSION else ()
+
+
+def validated(firmware, store):
+    """Whether stored data for this release and category has a reviewed codec."""
+    return store in release_stores(firmware)
+
+
+def profile_id(firmware):
+    if firmware == FIRMWARE_VERSION:
+        return PROFILE_ID
+    return 'crossink-' + firmware + ('-preview' if firmware in RELEASE_SETTINGS else '-backup')
+
+
+def _contract(model, firmware):
+    if type(model) is not str or type(firmware) is not str:
+        return None
+    release = CONTRACTS.get(firmware)
+    return release if release is not None and model in release['models'] and model in MODELS else None
+
+
+def access(model, firmware):
+    """'edit', 'backup' or None. Unknown model/version pairs are never guessed."""
+    release = _contract(model, firmware)
+    return release['access'] if release else None
+
+
+def capabilities(model, firmware):
+    # Hardware pages are reviewed only for the editable contract's SDK pin.
+    return sorted(MODELS[model]) if access(model, firmware) == 'edit' else []
 
 
 def profile_catalog():
-    """Implemented, source-reviewed contracts; never infer future compatibility.
+    """Source-pinned releases with what this engine implements for each one.
 
-    New storage contracts require a schema/codec provider and its tests, not merely
-    a version alias. The native UI consumes this metadata rather than its own lists.
+    Only the audited release is editable. Other releases allow exact-byte complete
+    backups and same-reader restore; adding a version alias never enables editing.
+    The native UI consumes this metadata rather than its own lists.
     """
-    return dict(profiles=[dict(id=PROFILE_ID, firmware=FIRMWARE_VERSION,
-                              upstream_commit=UPSTREAM_COMMIT, sdk_commit=SDK_COMMIT,
-                              models=[dict(id=model, label=model, capabilities=sorted(capabilities))
-                                      for model, capabilities in MODELS.items()])],
+    def label(release):
+        if release is contracts.UNREVIEWED:
+            return 'Newer than CrossInk v' + contracts.RELEASES[0]['firmware'] + ' (unreviewed)'
+        suffix = (' (backup only)' if release['access'] != 'edit'
+                  else ' (selected settings)' if release['firmware'] in RELEASE_SETTINGS else '')
+        return 'CrossInk v' + release['firmware'] + suffix
+    return dict(profiles=[dict(id=profile_id(release['firmware']), firmware=release['firmware'], label=label(release),
+                              access=release['access'], stores=list(release_stores(release['firmware'])), upstream_commit=release['commit'], sdk_commit=release['sdk'],
+                              models=[dict(id=model, label=model, capabilities=capabilities(model, release['firmware']))
+                                      for model in release['models']])
+                          for release in CONTRACTS.values()],
                 unknown_policy='settings_blocked_use_cli_backup_diagnostics')
 
 
 def supports_configuration(model, firmware):
-    # This bundled engine implements the current audited provider only. A future
-    # provider must be wired to its own schema/codec before exposing its catalogue.
-    return type(model) is str and type(firmware) is str and model in MODELS and firmware == FIRMWARE_VERSION
+    # Editing requires the audited schema/codec. Other releases need their own
+    # reviewed provider and tests before this can return True for them.
+    return access(model, firmware) == 'edit'
+
+
+def supports_backup(model, firmware):
+    return access(model, firmware) is not None
 
 
 STATUS_ITEMS = ('Empty', 'Clock', 'Battery', 'Time left in book', 'Time left in chapter',
@@ -208,7 +294,14 @@ def shortcut_choices(catalog, capabilities, doc):
     return choices
 
 
-def main_fields(model, doc):
+def main_fields(model, doc, firmware=FIRMWARE_VERSION):
+    if firmware != FIRMWARE_VERSION:
+        allowed, removed = RELEASE_SETTINGS[firmware], RELEASE_REMOVED_CHOICES.get(firmware, {})
+        fields = [field for field in main_fields(model, doc) if field['key'] in allowed]
+        for field in fields:
+            if field['key'] in removed:
+                field['choices'] = [(v, label) for v, label in field['choices'] if v not in removed[field['key']]]
+        return fields
     capabilities = MODELS[model]
     fields = deepcopy(list(BASE_FIELDS))
     # Legacy serialized mirrors are superseded by the modern Status bars editor.
@@ -305,9 +398,11 @@ def main_fields(model, doc):
     return fields
 
 
-def store_fields(store, model, doc):
+def store_fields(store, model, doc, firmware=FIRMWARE_VERSION):
+    if not validated(firmware, store):
+        raise ValueError('This configuration category is not reviewed for the selected release.')
     if store == 'settings':
-        return main_fields(model, doc)
+        return main_fields(model, doc, firmware)
     if store == 'dictionary':
         return [dict(key='path', label='Dictionary base path', group='dictionary', kind='text', default='', minimum=0, maximum=1023)]
     if store == 'koreader':

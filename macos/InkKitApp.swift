@@ -80,6 +80,9 @@ struct ReaderProfile: Decodable, Identifiable {
 struct FirmwareProfile: Decodable, Identifiable {
     let id: String
     let firmware: String
+    let label: String
+    let access: String
+    let stores: [String]
     let upstream_commit: String
     let sdk_commit: String
     let models: [ReaderProfile]
@@ -93,6 +96,17 @@ func isConfigurationGroupVisible(_ group: String, capabilities: [String]) -> Boo
     group != "frontlight" || capabilities.contains("frontlight")
 }
 
+/// Releases without a reviewed schema only expose complete backups.
+func isSectionAvailable(_ section: PreviewSection, snapshot: Snapshot?) -> Bool {
+    guard let snapshot else { return true }
+    if snapshot.access != "edit" { return section == .overview || section == .backups }
+    if section == .overview || section == .backups { return true }
+    // Older reviewed releases expose fewer categories and settings pages.
+    guard snapshot.stores.contains(where: { $0.id == section.store }) else { return false }
+    if section.store == "settings", !snapshot.groups.contains(section.group) { return false }
+    return isConfigurationGroupVisible(section.group, capabilities: snapshot.capabilities)
+}
+
 struct Snapshot: Decodable {
     let model: String
     let capabilities: [String]
@@ -100,6 +114,8 @@ struct Snapshot: Decodable {
     let stores: [StoreInfo]
     let label: String
     let firmware: String
+    let access: String
+    let groups: [String]
     let has_plaintext: Bool
     let profile: String
     let synthetic: Bool
@@ -315,6 +331,17 @@ final class PreviewModel: ObservableObject {
     var currentProfile: FirmwareProfile? { catalog?.profiles.first { $0.id == chosenProfile } }
     var availableModels: [ReaderProfile] { currentProfile?.models ?? [] }
     var selectedFirmware: String { currentProfile?.firmware ?? "" }
+    var isBackupOnly: Bool { snapshot.map { $0.access != "edit" } ?? false }
+    // Synthetic demos always use the editable reviewed release.
+    var demoModels: [ReaderProfile] { catalog?.profiles.first { $0.access == "edit" }?.models ?? [] }
+    /// Guidance for backup-only releases. InkKit never updates reader firmware.
+    func editingHint(for firmware: String?) -> String {
+        let latest = catalog?.profiles.first { $0.access == "edit" }?.firmware ?? ""
+        if firmware == "unreviewed-newer" {
+            return "This InkKit build has not reviewed this CrossInk version yet. A later InkKit update can add editing; until then, back up before changing anything on the reader."
+        }
+        return "To edit settings, update the reader to CrossInk v\(latest) on the reader itself, then reopen the card and choose that version. InkKit does not update firmware."
+    }
     @Published var sessionGeneration = 0
     private var root: String?
     private var reviewedChanges: [String: SettingValue] = [:]
@@ -367,7 +394,7 @@ final class PreviewModel: ObservableObject {
         defer { busy = false }
         do {
             let fresh: ProfileCatalog = try await request(HelperRequest(action: "profiles.describe"))
-            guard let first = fresh.profiles.first, let reader = first.models.first else {
+            guard let first = fresh.profiles.first(where: { $0.access == "edit" }), let reader = first.models.first else {
                 throw HelperFailure(code: "profile", message: "No reviewed configuration profile is bundled. Rebuild InkKit.")
             }
             catalog = fresh
@@ -400,7 +427,9 @@ final class PreviewModel: ObservableObject {
             root = result.root
             install(result.snapshot)
             try await fetchBackups()
-            status = "Card opened. Model and firmware are user-confirmed; no settings have been written."
+            status = isBackupOnly
+                ? "Card opened for backups only. " + editingHint(for: snapshot?.firmware)
+                : "Card opened. Model and firmware are user-confirmed; no settings have been written."
         } catch { report(error) }
     }
     func discard() { if let snapshot { draft = snapshot.values }; status = "Draft changes discarded." }
@@ -785,8 +814,8 @@ struct CardProfileSheet: View {
             Text("Confirm your reader").font(.title2.bold())
             Text("Card files cannot reliably identify the model or installed firmware. Choose the reader this card belongs to.")
                 .foregroundStyle(.secondary)
-            Picker("Reviewed firmware", selection: $model.chosenProfile) {
-                ForEach(model.catalog?.profiles ?? []) { Text("CrossInk v\($0.firmware)").tag($0.id) }
+            Picker("CrossInk version", selection: $model.chosenProfile) {
+                ForEach(model.catalog?.profiles ?? []) { Text($0.label).tag($0.id) }
             }.onChange(of: model.chosenProfile) {
                 confirmed = false
                 model.chosenModel = model.availableModels.first?.id ?? ""
@@ -794,8 +823,14 @@ struct CardProfileSheet: View {
             Picker("XTEINK model", selection: $model.chosenModel) {
                 ForEach(model.availableModels) { Text($0.label).tag($0.id) }
             }
-            Toggle("I confirm this reader is running CrossInk v\(model.selectedFirmware).", isOn: $confirmed)
-            Text("Unlisted version or device? Settings editing stays blocked. The separate migration CLI can back up or diagnose a layout-compatible card.")
+            Toggle("I confirm this reader is running \(model.currentProfile?.label ?? "the selected version").", isOn: $confirmed)
+            if model.currentProfile?.access != "edit" {
+                Text("Backup only: settings for this version have not been reviewed and cannot be edited. You can back up all six configuration files and restore them to this same reader.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Text(model.editingHint(for: model.currentProfile?.firmware))
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            Text("Version or device not listed? Choose the unreviewed newer option for backups, or use the separate migration CLI to back up or diagnose a layout-compatible card.")
                 .font(.callout).foregroundStyle(.secondary)
             Text("Selected X3 settings have owner-reported acceptance; other settings and models still need validation. Opening reads configuration only. Applying changes first backs up all six global configurations on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
@@ -851,7 +886,7 @@ struct PreviewWindow: View {
     }
     var body: some View {
         NavigationSplitView {
-            List(PreviewSection.allCases.filter { isConfigurationGroupVisible($0.group, capabilities: model.snapshot?.capabilities ?? []) }, selection: Binding(get: { selection }, set: { navigate($0) })) { section in
+            List(PreviewSection.allCases.filter { isSectionAvailable($0, snapshot: model.snapshot) }, selection: Binding(get: { selection }, set: { navigate($0) })) { section in
                 Label(section.rawValue, systemImage: section.icon).tag(section)
             }
             .disabled(model.busy)
@@ -868,7 +903,7 @@ struct PreviewWindow: View {
                     Image(systemName: model.isCard ? "sdcard" : "testtube.2")
                     Text(model.snapshot?.label ?? "No card selected").fontWeight(.semibold)
                     if let snapshot = model.snapshot {
-                        Text("\(snapshot.model) · CrossInk \(snapshot.firmware)\(snapshot.synthetic ? " · synthetic" : " · user-confirmed")")
+                        Text("\(snapshot.model) · CrossInk \(snapshot.firmware)\(snapshot.synthetic ? " · synthetic" : " · user-confirmed")\(model.isBackupOnly ? " · backup only" : "")")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -940,8 +975,14 @@ struct PreviewWindow: View {
                             if model.snapshot == nil { Task { await model.createDemo() } } else { resetDemo = true }
                         }.disabled(model.busy || !model.dirty.isEmpty)
                     }
+                    if model.isBackupOnly {
+                        Label("This CrossInk version is backup only. Open Backups to save or restore this reader's complete configuration. Settings are not shown or edited until the version is reviewed.", systemImage: "lock.doc")
+                            .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Text(model.editingHint(for: model.snapshot?.firmware))
+                            .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
                     Picker("Demo model", selection: $model.chosenModel) {
-                        ForEach(model.availableModels) { Text($0.label).tag($0.id) }
+                        ForEach(model.demoModels) { Text($0.label).tag($0.id) }
                     }.frame(maxWidth: 350).disabled(model.busy)
                     Divider()
                     VStack(alignment: .leading, spacing: 12) {
@@ -1054,13 +1095,18 @@ struct InkKitLauncher {
                     throw HelperFailure(code: "runtime", message: "The self-contained runtime check failed.")
                 }
                 for profile in result.catalog.profiles {
-                    for reader in profile.models {
+                    guard profile.access == "edit" || profile.models.allSatisfy({ $0.capabilities.isEmpty }),
+                          profile.access != "edit" || !profile.stores.isEmpty else {
+                        throw HelperFailure(code: "profile", message: "The release access check failed.")
+                    }
+                    for reader in profile.models where profile.access == "edit" {
                         guard isConfigurationGroupVisible("frontlight", capabilities: reader.capabilities) == (reader.id == "X4 Pro") else {
                             throw HelperFailure(code: "profile", message: "The model visibility check failed.")
                         }
                     }
                 }
-                guard result.snapshot.capabilities == result.catalog.profiles.first?.models.first(where: { $0.id == result.snapshot.model })?.capabilities,
+                guard result.snapshot.access == "edit",
+                      result.snapshot.capabilities == result.catalog.profiles.first?.models.first(where: { $0.id == result.snapshot.model })?.capabilities,
                       result.store_snapshots.allSatisfy({ $0.capabilities == result.snapshot.capabilities }) else {
                     throw HelperFailure(code: "profile", message: "The snapshot capability check failed.")
                 }

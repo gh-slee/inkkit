@@ -41,11 +41,11 @@ def validate(field, value):
             raise ValueError('The numeric setting does not match its supported step.')
 
 
-def validate_document(doc, store):
+def validate_document(doc, store, firmware=schema.FIRMWARE_VERSION):
     if type(doc) is not dict:
         raise ValueError('Configuration must be an object.')
     if store == 'dictionary':
-        validate(schema.store_fields(store, 'X3', doc)[0], doc.get('path'))
+        validate(schema.store_fields(store, 'X3', doc, firmware)[0], doc.get('path'))
         return
     if store in ('wifi', 'opds', 'ttf'):
         array, limit = {'wifi': ('credentials', 8), 'opds': ('servers', 8), 'ttf': ('profiles', 24)}[store]
@@ -54,7 +54,7 @@ def validate_document(doc, store):
             raise ValueError('The configuration collection has an invalid structure or exceeds its limit.')
     # Validate saved types, including raw enum types, without rejecting a value
     # solely because this model cannot offer it. Unknown fields are opaque.
-    fields = schema.store_fields(store, 'X4 Pro', doc)
+    fields = schema.store_fields(store, 'X4 Pro', doc, firmware)
     for field in fields:
         key = field['key']
         if key.endswith(('.enabled', '.clearPassword')) or key == 'clearPassword':
@@ -94,8 +94,14 @@ def validate_document(doc, store):
             raise ValueError('Legacy reader font-size IDs need firmware migration first.')
         # Legacy choices can affect missing modern defaults. Let the firmware
         # migrate them first rather than silently inventing a different mapping.
-        for old, modern in (('frontButtonLayout', 'frontButtonBack'), ('sideButtonLayout', 'sideButtonUpShort'),
-                            ('sideButtonLongPress', 'sideButtonUpLong'), ('tiltPageTurn', 'tiltPageTurnDirection')):
+        for old, modern in (('frontButtonLayout', 'frontButtonBack'), ('tiltPageTurn', 'tiltPageTurnDirection')):
+            if old in doc and modern not in doc:
+                raise ValueError('Legacy button or tilt mappings need firmware migration first.')
+        if firmware != schema.FIRMWARE_VERSION:
+            # Side-button layouts and individual status-bar keys are current data
+            # in older releases; their later structures stay opaque there.
+            return
+        for old, modern in (('sideButtonLayout', 'sideButtonUpShort'), ('sideButtonLongPress', 'sideButtonUpLong')):
             if old in doc and modern not in doc:
                 raise ValueError('Legacy button or tilt mappings need firmware migration first.')
         for old, suffix in (('sideButtonLayout', 'Short'), ('sideButtonLongPress', 'Long')):
@@ -197,7 +203,7 @@ def _quick_actions(doc, changes):
         doc['quickActionsTrigger'] = owner
 
 
-def patch_document(doc, store, fields, changes, allow_plaintext=False):
+def patch_document(doc, store, fields, changes, allow_plaintext=False, firmware=schema.FIRMWARE_VERSION):
     by_key = {field['key']: field for field in fields}
     if type(changes) is not dict or any(key not in by_key for key in changes):
         raise ValueError('Only supported configuration fields can be changed.')
@@ -292,7 +298,7 @@ def patch_document(doc, store, fields, changes, allow_plaintext=False):
             last = doc.get('lastConnectedSsid', '')
             if last and last not in {entry['ssid'] for entry in entries}:
                 result['lastConnectedSsid'] = ''
-    validate_document(result, store)
+    validate_document(result, store, firmware)
     return result, secret_changed
 
 
