@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Clarify the app: settings pages appear only after a card is open; button and
+  shortcut mappings move to Controls with sections such as Side buttons, Power
+  button and Home button; labels no longer come from storage keys; controls for
+  hardware the reader lacks are hidden; Overview summarizes the open card with
+  Back up now and Eject. Each settings page opens at the top. The synthetic demo
+  is now a maintainer-only screenshot mode (`-InkKitScreenshotDemo YES`).
+
 - Backup-only screens explain how to regain editing: update the reader to the
   latest editable CrossInk version, or wait for an InkKit update that reviews a
   newer release. Document that new-release review, not older editors, is the

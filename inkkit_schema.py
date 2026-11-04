@@ -340,6 +340,7 @@ def main_fields(model, doc, firmware=FIRMWARE_VERSION):
         cap = _capability(field)
         if cap and cap not in capabilities:
             field['readonly'] = 'This reader model does not provide this capability.'
+            field['hidden'] = True  # Preserved and read-only; not shown for this model.
         if key == 'tiltPageTurnDirection' and model == 'X4 Classic':
             field['choices'][0], field['choices'][1] = (0, 'Left/right inverted'), (1, 'Left/right')
         if key == 'tiltPageTurnDirection' and 'tiltPageTurnDirection' in doc and doc.get('tiltPageTurnDirectionSchema', 1) != 2:
@@ -355,6 +356,7 @@ def main_fields(model, doc, firmware=FIRMWARE_VERSION):
                 field = choice(key, title(key), enumerate(('Back', 'Confirm', 'Left', 'Right')), default, 'controls')
             if 'front_buttons' not in capabilities:
                 field['readonly'] = 'This model has no front-button cluster.'
+                field['hidden'] = True
         elif key == 'librarySortMethod':
             field = choice(key, 'Library sort', enumerate(('Date added', 'Title', 'Author last name', 'Author first name', 'Last opened', 'Series', 'Genre')), default, 'library')
         elif key == 'recentBooksView':
@@ -395,7 +397,175 @@ def main_fields(model, doc, firmware=FIRMWARE_VERSION):
             fields.append(choice(prefix + key, position.capitalize() + ' — ' + label, enumerate(options), default, 'status'))
     fields += [choice('readerStatusBars.xtcMode', 'XTC status bars', enumerate(('Hidden', 'Bottom', 'Top', 'Both')), effective['readerStatusBars']['xtcMode'], 'status'),
                row('readerStatusBars.legacyXtcTopUsesBottom', 'XTC top uses bottom layout (legacy)', 'status', 'bool', False)]
-    return fields
+    return _present(fields)
+
+
+# Presentation only: page (group), section and label. Storage keys, kinds, raw
+# values and validation are unchanged. Unlisted fields keep their own values.
+_SECTIONS = {
+    'display': ('Sleep screen', 'Interface', 'Battery and clock'),
+    'reading': ('Font', 'Layout', 'Rendering', 'Reading aids'),
+    'library': ('Library list', 'Recently opened'),
+    'controls': ('Side buttons', 'Front buttons', 'Front button layout', 'Front button layout in reader',
+                 'Power button', 'Home button', 'Button chords', 'Quick Actions', 'Touch',
+                 'Two-finger gestures', 'Edge slides', 'Tilt'),
+    'status': ('Display bar', 'Top bar', 'Bottom bar', 'XTC books'),
+    'device': ('Device', 'Clock and date', 'Files', 'Reading stats'),
+}
+_PRESENTATION = {
+    'sleepScreen': ('display', 'Sleep screen', 'Sleep screen'),
+    'sleepScreenCoverMode': ('display', 'Sleep screen', 'Cover fit'),
+    'sleepScreenCoverFilter': ('display', 'Sleep screen', 'Cover filter'),
+    'quickResumeSleepScreen': ('display', 'Sleep screen', None),
+    'uiTheme': ('display', 'Interface', 'Theme'),
+    'uiScale': ('display', 'Interface', None),
+    'swapLibraryFileBrowser': ('display', 'Interface', None),
+    'screenInverted': ('display', 'Interface', None),
+    'refreshFrequency': ('display', 'Interface', None),
+    'fadingFix': ('display', 'Interface', None),
+    'hideBatteryPercentage': ('display', 'Battery and clock', None),
+    'hideClock': ('display', 'Battery and clock', None),
+    'fontFamily': ('reading', 'Font', None),
+    'fontSize': ('reading', 'Font', None),
+    'sdFontFamilyName': ('reading', 'Font', None),
+    'sdFontSizeRange': ('reading', 'Font', None),
+    'dictionaryFont': ('reading', 'Font', None),
+    'dictionaryFontSize': ('reading', 'Font', None),
+    'lineHeightPercent': ('reading', 'Layout', None),
+    'wordSpacing': ('reading', 'Layout', None),
+    'orientation': ('reading', 'Layout', None),
+    'screenMarginVertical': ('reading', 'Layout', None),
+    'screenMarginHorizontal': ('reading', 'Layout', None),
+    'paragraphAlignment': ('reading', 'Layout', None),
+    'extraParagraphSpacing': ('reading', 'Layout', None),
+    'forceParagraphIndents': ('reading', 'Layout', None),
+    'hyphenationEnabled': ('reading', 'Layout', None),
+    'embeddedStyle': ('reading', 'Rendering', None),
+    'textAntiAliasing': ('reading', 'Rendering', None),
+    'imageRendering': ('reading', 'Rendering', None),
+    'publisherPageNumbers': ('reading', 'Rendering', None),
+    'indexingMethod': ('reading', 'Rendering', None),
+    'focusReadingEnabled': ('reading', 'Reading aids', None),
+    'guideReadingEnabled': ('reading', 'Reading aids', None),
+    'libraryUseMetadata': ('library', 'Library list', None),
+    'librarySortMethod': ('library', 'Library list', 'Sort by'),
+    'librarySortDescending': ('library', 'Library list', 'Sort descending'),
+    'libraryListExpanded': ('library', 'Library list', 'Expanded list rows'),
+    'libraryShowSeries': ('library', 'Library list', 'Show series'),
+    'libraryShowGenre': ('library', 'Library list', 'Show genre'),
+    'libraryShowEpub': ('library', 'Library list', 'Show EPUB books'),
+    'libraryShowXtc': ('library', 'Library list', 'Show XTC books'),
+    'libraryShowTxt': ('library', 'Library list', 'Show TXT books'),
+    'libraryShowMarkdown': ('library', 'Library list', 'Show Markdown books'),
+    'libraryHideFinishedBooks': ('library', 'Library list', 'Hide finished books'),
+    'recentBooksView': ('library', 'Recently opened', 'Recently opened view'),
+    'sideButtonUpShort': ('controls', 'Side buttons', 'Up — short press'),
+    'sideButtonUpLong': ('controls', 'Side buttons', 'Up — long press'),
+    'sideButtonDownShort': ('controls', 'Side buttons', 'Down — short press'),
+    'sideButtonDownLong': ('controls', 'Side buttons', 'Down — long press'),
+    'sideButtonOrientationAware': ('controls', 'Side buttons', 'Follow screen orientation'),
+    'frontButtonOrientationAware': ('controls', 'Front buttons', 'Follow screen orientation'),
+    'longPressButtonBehavior': ('controls', 'Front buttons', 'Long press'),
+    'longPressMenuAction': ('controls', 'Front buttons', 'Menu button — long press'),
+    'longPressBackAction': ('controls', 'Front buttons', 'Back button — long press'),
+    'frontButtonBack': ('controls', 'Front button layout', 'Back'),
+    'frontButtonConfirm': ('controls', 'Front button layout', 'Confirm'),
+    'frontButtonLeft': ('controls', 'Front button layout', 'Left'),
+    'frontButtonRight': ('controls', 'Front button layout', 'Right'),
+    'readerFrontButtonsEnabled': ('controls', 'Front button layout in reader', 'Use a separate layout while reading'),
+    'readerFrontButtonBack': ('controls', 'Front button layout in reader', 'Back'),
+    'readerFrontButtonConfirm': ('controls', 'Front button layout in reader', 'Confirm'),
+    'readerFrontButtonLeft': ('controls', 'Front button layout in reader', 'Left'),
+    'readerFrontButtonRight': ('controls', 'Front button layout in reader', 'Right'),
+    'shortPwrBtn': ('controls', 'Power button', 'Short press'),
+    'longPwrBtn': ('controls', 'Power button', 'Long press'),
+    'pwrBtnFootnoteBack': ('controls', 'Power button', None),
+    'homeButtonInReaderEnabled': ('controls', 'Home button', 'Home button while reading'),
+    'homeButtonTapAction': ('controls', 'Home button', 'Tap'),
+    'homeButtonDoubleTapAction': ('controls', 'Home button', 'Double tap'),
+    'homeButtonLongPressAction': ('controls', 'Home button', 'Long press'),
+    'powerChordAction': ('controls', 'Button chords', 'Power button chord'),
+    'sideButtonChordAction': ('controls', 'Button chords', 'Side-button chord (Up + Down)'),
+    'quickActionsTrigger': ('controls', 'Quick Actions', 'Open Quick Actions with'),
+    'touchReaderControls': ('controls', 'Touch', None),
+    'disableReaderTouchscreen': ('controls', 'Touch', None),
+    'pageTurnGesture': ('controls', 'Touch', 'Next page gesture'),
+    'previousPageGesture': ('controls', 'Touch', 'Previous page gesture'),
+    'tapToHideStatusBar': ('controls', 'Touch', None),
+    'pinchFontResizeEnabled': ('controls', 'Two-finger gestures', None),
+    'twoFingerRotationEnabled': ('controls', 'Two-finger gestures', None),
+    'twoFingerSwipeUp': ('controls', 'Two-finger gestures', 'Two-finger swipe up'),
+    'twoFingerSwipeDown': ('controls', 'Two-finger gestures', 'Two-finger swipe down'),
+    'twoFingerSwipeLeft': ('controls', 'Two-finger gestures', 'Two-finger swipe left'),
+    'twoFingerSwipeRight': ('controls', 'Two-finger gestures', 'Two-finger swipe right'),
+    'leftEdgeUp': ('controls', 'Edge slides', 'Left edge — slide up'),
+    'leftEdgeDown': ('controls', 'Edge slides', 'Left edge — slide down'),
+    'rightEdgeUp': ('controls', 'Edge slides', 'Right edge — slide up'),
+    'rightEdgeDown': ('controls', 'Edge slides', 'Right edge — slide down'),
+    'tiltPageTurn': ('controls', 'Tilt', None),
+    'tiltPageTurnDirection': ('controls', 'Tilt', None),
+    'displayStatusBar.0': ('status', 'Display bar', 'Left'),
+    'displayStatusBar.1': ('status', 'Display bar', 'Center'),
+    'displayStatusBar.2': ('status', 'Display bar', 'Right'),
+    'readerStatusBars.xtcMode': ('status', 'XTC books', 'XTC status bars'),
+    'readerStatusBars.legacyXtcTopUsesBottom': ('status', 'XTC books', None),
+    'deviceName': ('device', 'Device', None),
+    'sleepTimeoutMinutes': ('device', 'Device', None),
+    'customBootscreenEnabled': ('device', 'Device', None),
+    'language': ('device', 'Device', None),
+    'keyboardLayouts': ('device', 'Device', None),
+    'clockUtcOffsetQ': ('device', 'Clock and date', None),
+    'clockFormat': ('device', 'Clock and date', None),
+    'dateFormat': ('device', 'Clock and date', None),
+    'dateSeparator': ('device', 'Clock and date', None),
+    'clockHasBeenSynced': ('device', 'Clock and date', None),
+    'showHiddenFiles': ('device', 'Files', None),
+    'hideFileExtension': ('device', 'Files', None),
+    'fileBrowserDisplay': ('device', 'Files', None),
+    'opdsDownloadFolder': ('device', 'Files', 'OPDS download folder'),
+    'nearbyReceiveFolder': ('device', 'Files', None),
+    'removeReadBooksFromRecents': ('device', 'Files', None),
+    'moveFinishedToReadFolder': ('device', 'Files', None),
+    'trackReadingStats': ('device', 'Reading stats', None),
+    'autoBackupStats': ('device', 'Reading stats', 'Automatic stats backups'),
+    'readingIdleTimeThresholdUnits': ('device', 'Reading stats', None),
+}
+# Upstream choice text shown as-is except for capitalization that reads as a warning.
+_CHOICE_LABELS = {'OFF': 'Off'}
+
+
+def _presentation(key):
+    if key in _PRESENTATION:
+        return _PRESENTATION[key]
+    if key.startswith('quickActionSlots.'):
+        return 'controls', 'Quick Actions', None
+    if key.startswith('readerStatusBars.'):
+        position, _, rest = key[len('readerStatusBars.'):].partition('.')
+        label = 'Slot ' + str(int(rest.split('.')[1]) + 1) if rest.startswith('slots.') else None
+        return 'status', position.capitalize() + ' bar', label
+    if key.startswith('frontlight'):
+        return 'frontlight', 'Frontlight', None
+    return None
+
+
+def _present(fields):
+    order = {(group, section): (list(_SECTIONS).index(group), i)
+             for group, sections in _SECTIONS.items() for i, section in enumerate(sections)}
+    for field in fields:
+        placement = _presentation(field['key'])
+        if placement:
+            group, section, label = placement
+            field.update(group=group, section=section)
+            if label:
+                field['label'] = label
+            elif field['key'].startswith('readerStatusBars.') and ' — ' in field['label']:
+                field['label'] = field['label'].split(' — ', 1)[1]
+        if field['kind'] == 'enum':
+            field['choices'] = [(value, _CHOICE_LABELS.get(text, text)) for value, text in field['choices']]
+    rank = {key: i for i, key in enumerate(_PRESENTATION)}
+    # Listed fields follow _PRESENTATION order; others keep upstream order (stable sort).
+    return sorted(fields, key=lambda field: order.get((field['group'], field.get('section')), (99, 0))
+                  + (rank.get(field['key'], len(rank)),))
 
 
 def store_fields(store, model, doc, firmware=FIRMWARE_VERSION):

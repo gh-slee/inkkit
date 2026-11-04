@@ -51,6 +51,7 @@ class Field:
     readonly: str = ''
     section: str = ''
     step: int = 1
+    hidden: bool = False
 
     def validate(self, value):
         try:
@@ -62,7 +63,7 @@ class Field:
         return dict(key=self.key, label=self.label, group=self.group, kind=self.kind,
                     default=self.default, minimum=self.minimum, maximum=self.maximum,
                     choices=self.choices, readonly=self.readonly, section=self.section or self.group.capitalize(),
-                    step=self.step)
+                    step=self.step, hidden=self.hidden)
 
 
 FIELDS = tuple(Field(**field) for field in schema.main_fields('X3', {}))
@@ -474,7 +475,8 @@ def _settings_groups(workspace):
     """Main-settings pages that this release and model can show."""
     if not schema.supports_configuration(workspace.model, workspace.firmware):
         return []
-    return sorted({field['group'] for field in schema.main_fields(workspace.model, {}, workspace.firmware)})
+    return sorted({field['group'] for field in schema.main_fields(workspace.model, {}, workspace.firmware)
+                   if not field.get('hidden')})
 
 
 def _has_plaintext(value):
