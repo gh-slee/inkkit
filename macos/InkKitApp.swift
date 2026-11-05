@@ -46,6 +46,7 @@ struct FieldDescriptor: Decodable, Identifiable {
     let readonly: String
     let section: String
     let step: Int
+    let hidden: Bool?
     var id: String { key }
 }
 
@@ -98,7 +99,8 @@ func isConfigurationGroupVisible(_ group: String, capabilities: [String]) -> Boo
 
 /// Releases without a reviewed schema only expose complete backups.
 func isSectionAvailable(_ section: PreviewSection, snapshot: Snapshot?) -> Bool {
-    guard let snapshot else { return true }
+    // Settings pages need an open card or demo; before that they would only show Overview.
+    guard let snapshot else { return section == .overview || section == .backups }
     if snapshot.access != "edit" { return section == .overview || section == .backups }
     if section == .overview || section == .backups { return true }
     // Older reviewed releases expose fewer categories and settings pages.
@@ -260,6 +262,10 @@ enum Backend {
     static var resources: URL { Bundle.main.resourceURL! }
     static var runtime: URL { resources.appendingPathComponent("runtime", isDirectory: true) }
 
+    /// Maintainer-only synthetic data for app screenshots, enabled per launch with
+    /// `--args -InkKitScreenshotDemo YES`. Regular launches never offer it.
+    static var screenshotDemo: Bool { UserDefaults.standard.bool(forKey: "InkKitScreenshotDemo") }
+
     static var version: String {
         guard let value = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         else { return "Unknown" }
@@ -319,7 +325,7 @@ final class PreviewModel: ObservableObject {
     @Published var backups: [BackupEntry] = []
     @Published var busy = false
     @Published var errorMessage: String?
-    @Published var status = "Open your SD card or explore an example reader."
+    @Published var status = Backend.screenshotDemo ? "Screenshot demo enabled. Open an SD card or create a synthetic demo." : "Open your reader's SD card to begin."
     @Published var differences: [Difference] = []
     @Published var reviewFields: [FieldDescriptor] = []
     @Published var showingReview = false
@@ -403,7 +409,7 @@ final class PreviewModel: ObservableObject {
         } catch { report(error) }
     }
     func createDemo() async {
-        guard !busy, dirty.isEmpty else { return }
+        guard Backend.screenshotDemo, !busy, dirty.isEmpty else { return }
         busy = true
         defer { busy = false }
         do {
@@ -654,7 +660,7 @@ struct FieldRow: View {
             } else if field.kind == "enum" {
                 Picker(field.label, selection: Binding(get: { model.draft[field.key] ?? .number(0) }, set: { model.draft[field.key] = $0 })) {
                     if let current = model.draft[field.key], !field.choices.contains(where: { $0.first == current }) {
-                        Text("Current: \(current.display) (not offered for this profile)").tag(current)
+                        Text("Current value \(current.display) — not available on this reader").tag(current)
                     }
                     ForEach(Array(field.choices.enumerated()), id: \.offset) { _, option in
                         if option.count == 2 { Text(option[1].display).tag(option[0]) }
@@ -954,7 +960,7 @@ struct PreviewWindow: View {
     var fields: [FieldDescriptor] {
         (model.snapshot?.fields ?? []).filter { field in
             let matches = search.isEmpty || field.label.localizedCaseInsensitiveContains(search) || field.key.localizedCaseInsensitiveContains(search)
-            return isConfigurationGroupVisible(field.group, capabilities: model.snapshot?.capabilities ?? []) && matches && (model.store != "settings" || !search.isEmpty || field.group == (selection?.group ?? "device"))
+            return field.hidden != true && isConfigurationGroupVisible(field.group, capabilities: model.snapshot?.capabilities ?? []) && matches && (model.store != "settings" || !search.isEmpty || field.group == (selection?.group ?? "device"))
         }
     }
     @ViewBuilder var content: some View {
@@ -963,44 +969,92 @@ struct PreviewWindow: View {
         } else if model.snapshot == nil || selection == .overview {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Image(systemName: "externaldrive.badge.checkmark").font(.system(size: 38)).foregroundStyle(.tint).accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("A safer place to adjust your reader.").font(.title.bold())
-                        Text("Manage CrossInk settings on your current SD card. Review each change, keep the original file and verify the result.")
-                            .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                    HStack {
-                        Button("Open SD card", action: chooseCard).buttonStyle(.borderedProminent).disabled(model.busy || !model.dirty.isEmpty)
-                        Button(model.snapshot == nil ? "Create synthetic demo" : "New synthetic demo") {
-                            if model.snapshot == nil { Task { await model.createDemo() } } else { resetDemo = true }
-                        }.disabled(model.busy || !model.dirty.isEmpty)
-                    }
-                    if model.isBackupOnly {
-                        Label("This CrossInk version is backup only. Open Backups to save or restore this reader's complete configuration. Settings are not shown or edited until the version is reviewed.", systemImage: "lock.doc")
-                            .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        Text(model.editingHint(for: model.snapshot?.firmware))
-                            .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                    Picker("Demo model", selection: $model.chosenModel) {
-                        ForEach(model.demoModels) { Text($0.label).tag($0.id) }
-                    }.frame(maxWidth: 350).disabled(model.busy)
-                    Divider()
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Settings available").font(.headline)
-                        Label("Display, reading, library, controls, status bars and device", systemImage: "slider.horizontal.3")
-                        Label("Wi-Fi, OPDS, reading sync, dictionary and font rendering", systemImage: "network")
-                        Label("Original-file backups, verified apply and guarded restore", systemImage: "clock.arrow.circlepath")
-                    }
-                    Text("Reviewed CrossInk versions and reader models come from the bundled compatibility catalogue. Controls follow the selected model's capabilities; Frontlight appears only for a model with that hardware. Selected X3 settings have owner-reported acceptance; other settings and models remain unvalidated.")
-                        .font(.callout).foregroundStyle(.secondary)
-                    Text("Card editing never formats a disk. Backups stay on this Mac. New passwords require explicit plaintext-handoff consent; stored passwords are kept hidden.")
-                        .font(.callout).foregroundStyle(.secondary)
+                    if let snapshot = model.snapshot { sessionSummary(snapshot) } else { welcome }
                 }.padding(32).frame(maxWidth: 740, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             }
         } else if model.store != selection?.store {
             ContentUnavailableView("Configuration not loaded", systemImage: "externaldrive.badge.questionmark", description: Text("Reconnect the card and select this category again."))
         } else {
             configurationForm
+        }
+    }
+    var demoPicker: some View {
+        Picker("Demo model", selection: $model.chosenModel) {
+            ForEach(model.demoModels) { Text($0.label).tag($0.id) }
+        }.frame(maxWidth: 350).disabled(model.busy)
+    }
+    /// First run: what InkKit does and how to start.
+    @ViewBuilder var welcome: some View {
+        Image(systemName: "externaldrive.badge.checkmark").font(.system(size: 38)).foregroundStyle(.tint).accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("A safer place to adjust your reader.").font(.title.bold())
+            Text("Manage CrossInk settings on your current SD card. Review each change, keep the original file and verify the result.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        HStack {
+            Button("Open SD card", action: chooseCard).buttonStyle(.borderedProminent).disabled(model.busy || !model.dirty.isEmpty)
+            if Backend.screenshotDemo {
+                Button("Create synthetic demo") { Task { await model.createDemo() } }.disabled(model.busy || !model.dirty.isEmpty)
+            }
+        }
+        if Backend.screenshotDemo { demoPicker }
+        Divider()
+        VStack(alignment: .leading, spacing: 12) {
+            Text("What you can manage").font(.headline)
+            Label("Display, reading, library, controls, status bars and device", systemImage: "slider.horizontal.3")
+            Label("Wi-Fi, OPDS, reading sync, dictionary and font rendering", systemImage: "network")
+            Label("Complete configuration backups, verified apply and guarded restore", systemImage: "clock.arrow.circlepath")
+        }
+        Text("Available pages depend on your reader model and CrossInk version. Selected X3 settings have owner-reported acceptance; other settings and models remain unvalidated.")
+            .font(.callout).foregroundStyle(.secondary)
+        Text("Card editing never formats a disk. Backups stay on this Mac. New passwords require explicit plaintext-handoff consent; stored passwords are kept hidden.")
+            .font(.callout).foregroundStyle(.secondary)
+    }
+    /// An open card or demo: what it is, what can be done and the next safe step.
+    @ViewBuilder func sessionSummary(_ snapshot: Snapshot) -> some View {
+        let release = model.catalog?.profiles.first { $0.firmware == snapshot.firmware }
+        let pages = PreviewSection.allCases.filter { $0 != .overview && $0 != .backups && isSectionAvailable($0, snapshot: snapshot) }
+        let lastBackup = model.backups.first { $0.can_restore }
+        Image(systemName: snapshot.synthetic ? "testtube.2" : "sdcard").font(.system(size: 38)).foregroundStyle(.tint).accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(snapshot.synthetic ? "Synthetic demo" : snapshot.label).font(.title.bold())
+            Text("\(snapshot.model) · \(release?.label ?? "CrossInk v\(snapshot.firmware)")")
+                .foregroundStyle(.secondary)
+        }
+        if model.isBackupOnly {
+            Label("This CrossInk version is backup only. Open Backups to save or restore this reader's complete configuration. Settings are not shown or edited until the version is reviewed.", systemImage: "lock.doc")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(model.editingHint(for: snapshot.firmware))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        HStack {
+            if snapshot.synthetic {
+                Button("New synthetic demo") { resetDemo = true }.disabled(model.busy || !model.dirty.isEmpty)
+                Button("Open SD card", action: chooseCard).disabled(model.busy || !model.dirty.isEmpty)
+            } else {
+                Button("Back up now", systemImage: "externaldrive.badge.plus") { Task { await model.backupNow() } }
+                    .buttonStyle(.borderedProminent).disabled(model.busy || !model.dirty.isEmpty)
+                Button("Eject", systemImage: "eject") { Task { await model.eject() } }.disabled(model.busy || !model.dirty.isEmpty)
+                Button("Open another card", action: chooseCard).disabled(model.busy || !model.dirty.isEmpty)
+            }
+        }
+        if snapshot.synthetic { demoPicker }
+        if !snapshot.synthetic {
+            if let lastBackup {
+                Label("Latest restorable backup (same model and version): \(lastBackup.date.formatted(date: .abbreviated, time: .shortened))", systemImage: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+            } else {
+                Label("No restorable backup for this model and version yet. Back up before you change anything.", systemImage: "exclamationmark.circle")
+                    .foregroundStyle(.orange)
+            }
+        }
+        if !pages.isEmpty {
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Settings for this reader").font(.headline)
+                Text(pages.map(\.rawValue).joined(separator: " · ")).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
     var sections: [String] {
@@ -1035,7 +1089,8 @@ struct PreviewWindow: View {
                 Section { Text("Enter the dictionary's SD-card base path, without .idx/.dict/.ifo. This changes only the global selection, not per-book dictionaries or dictionary files.").foregroundStyle(.secondary) }
             }
         }
-        .formStyle(.grouped).disabled(model.busy).id(model.store)
+        // A separate identity per page starts each settings page at the top.
+        .formStyle(.grouped).disabled(model.busy).id(model.store + "/" + (selection?.rawValue ?? ""))
         .searchable(text: $search, prompt: "Find a setting")
     }
 }

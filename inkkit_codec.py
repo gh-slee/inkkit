@@ -307,7 +307,11 @@ def differences(before, after, store, fields, changes=None):
     result = []
     for field in fields:
         key = field['key']
-        label = (field.get('section', '') + ' — ' if key.startswith(('credentials.', 'servers.', 'profiles.')) else '') + field['label']
+        section = field.get('section', '')
+        # Short labels such as "Long press" need their section to be unambiguous.
+        prefixed = key.startswith(('credentials.', 'servers.', 'profiles.')) or (
+            store == 'settings' and section and section != field.get('group', '').capitalize())
+        label = (section + ' — ' if prefixed else '') + field['label']
         if field['kind'] == 'secret':
             if changes and changes.get(key):
                 result.append(dict(key=key, label=label, before='Saved password hidden', after='New password (plaintext handoff)'))

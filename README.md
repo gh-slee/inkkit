@@ -76,12 +76,11 @@ directory for each build: the builder preserves existing app bundles. The app
 bundles its runtime, so launching the built app does not require Python on PATH.
 See [complete build instructions and packaging limits](docs/macos-preview.md).
 
-1. Choose **Create synthetic demo** to explore the app without a card.
-2. For your reader, keep a separate verified full-card backup, shut down the reader
+1. Keep a separate verified full-card backup, shut down the reader
    and insert its card into a separate SD reader. Choose **Open SD card**, select
    the mounted root and confirm the actual model and the CrossInk version running
    on the reader. For a backup-only version, the app shows only Overview and Backups.
-3. Use **Backups → Backup now** before editing. Change one preference, review it
+2. Use **Backups → Backup now** before editing. Change one preference, review it
    and choose **Back up & apply**. After **Eject** succeeds, return the card to the
    shut-down reader and verify the result there.
 
@@ -149,8 +148,8 @@ unchanged. See [backup/recovery details](docs/macos-preview.md#complete-configur
 
 ### What has actually been verified
 
-The controls use CrossInk's real storage formats. **Synthetic demo** is invented
-example data; **Open SD card** uses real, reviewed configuration-file writes.
+The controls use CrossInk's real storage formats. The maintainer-only screenshot
+demo uses invented example data; **Open SD card** uses real, reviewed configuration-file writes.
 File readback proves saved bytes, not that firmware loaded them or a connection
 succeeded. The maintainer has reported successful X3 Restore, safe eject and tested
 preference changes, including Sleep Screen behavior on the reader. The tested

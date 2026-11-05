@@ -5,7 +5,6 @@ CrossInk v1.6.1 global settings on an explicitly selected current SD card, as we
 as synthetic demos. See [every supported control](configuration-reference.md).
 Selected X3 preferences, Restore and safe eject have owner-reported acceptance;
 other settings/models and the newer complete-snapshot workflow remain unvalidated.
-Test the synthetic demo first.
 See [source evidence, X3 acceptance and screenshot gates](configuration-validation.md).
 The separately released migration CLI remains unchanged.
 
@@ -28,12 +27,21 @@ Use a fresh output directory. The builder never overwrites old apps. Failed buil
 may leave incomplete bundles; do not run/distribute them. The built app includes
 its own runtime and does not require Python from PATH or Codex to run.
 
-## Try synthetic settings
+## Screenshot demo (maintainers only)
 
-Choose a demo model, then **Create synthetic demo**. The sidebar groups Display,
-Reading, Library, Controls, Frontlight, Status bars and Device. Separate forms cover
-Wi-Fi, OPDS, Reading sync, Font rendering and Dictionary. Unsupported model controls
-are disabled, and the Frontlight page/search group is hidden on models without
+Regular launches do not offer synthetic data. To capture app screenshots with
+invented settings, launch the built app with the screenshot flag:
+
+```bash
+open -n 'work/macos-config/InkKit Preview.app' --args -InkKitScreenshotDemo YES
+```
+
+Choose a demo model, then **Create synthetic demo**. Settings pages and the sidebar
+appear only after a card or demo is open. The sidebar groups Display,
+Reading, Library, Controls, Frontlight, Status bars and Device; each page is split
+into sections such as Side buttons, Power button or Clock and date. Separate forms cover
+Wi-Fi, OPDS, Reading sync, Font rendering and Dictionary. Controls for hardware the
+model lacks are hidden, and the Frontlight page/search group is hidden on models without
 that hardware (X3, X4 and X4 Classic). X4 Pro exposes Frontlight. Raw stored
 unsupported values are still preserved. Built-in font selection applies when the SD font family is empty;
 a nonempty SD family takes precedence. Clear it explicitly to return to a built-in font. Existing unsupported stored values remain visible and unchanged.

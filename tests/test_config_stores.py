@@ -329,6 +329,28 @@ class SchemaTests(unittest.TestCase):
         legacy = {f['key'] for f in schema.BASE_FIELDS if f['group'] == 'legacy'}
         self.assertEqual(catalog - represented, legacy | {'clockDateHasBeenSynced', 'dictionaryFontPointSize'})
 
+    def test_every_setting_has_a_page_section_and_unambiguous_label(self):
+        buttons = ('sideButton', 'homeButton', 'shortPwrBtn', 'longPwrBtn', 'powerChordAction', 'longPress')
+        for firmware in (schema.FIRMWARE_VERSION,) + tuple(schema.RELEASE_SETTINGS):
+            for model in schema.MODELS:
+                with self.subTest(firmware=firmware, model=model):
+                    fields = schema.main_fields(model, {}, firmware)
+                    placed = [(f['group'], f['section'], f['label']) for f in fields]
+                    self.assertTrue(all(schema._presentation(f['key']) for f in fields))
+                    self.assertEqual(len(placed), len(set(placed)))
+                    # Button and shortcut mappings live with the other controls.
+                    self.assertFalse([f['key'] for f in fields if f['group'] == 'device' and f['key'].startswith(buttons)])
+                    for field in fields:
+                        # Only a missing capability hides a control; its value is still preserved read-only.
+                        self.assertEqual(bool(field.get('hidden')), bool(field.get('readonly')) and 'tilt-direction' not in field['readonly'])
+                        if field['kind'] == 'enum':
+                            self.assertNotIn('OFF', [label for _, label in field['choices']])
+
+    def test_review_rows_name_the_section_for_short_labels(self):
+        fields = schema.main_fields('X4 Pro', {})
+        rows = codec.differences({}, {'shortPwrBtn': 5}, 'settings', fields)
+        self.assertEqual([row['label'] for row in rows], ['Power button — Short press'])
+
     def test_backend_catalogue_and_every_store_report_model_capabilities(self):
         catalog = helper.dispatch(dict(protocol=2, action='profiles.describe'))
         self.assertEqual(catalog['unknown_policy'], 'settings_blocked_use_cli_backup_diagnostics')
