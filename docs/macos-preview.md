@@ -120,7 +120,7 @@ hash. Preserve all recovery evidence; do not force a write or format the card. S
 
 ## Complete configuration backups
 
-**Backup now** stores the exact bytes/existence of all six global stores:
+**Back up now** stores the exact bytes/existence of all six global stores:
 `crossink-settings.json`, `wifi.json`, `opds.json`, `koreader.json`,
 `ttf-rendering.json` and `dictionary.bin`, under `.crosspoint` on the card.
 A missing optional file and an existing empty dictionary selection are distinct.
@@ -133,7 +133,7 @@ with a versioned manifest and per-file SHA-256. They may contain credentials and
 are not encrypted. Synthetic snapshots stay inside their separate demo workspace.
 No backup is uploaded or packaged. The migration CLI's repo-local ZIPs are unchanged.
 
-- **Backup now** captures and verifies all six stores without modifying the card.
+- **Back up now** captures and verifies all six stores without modifying the card.
   Each native Apply also saves a complete snapshot before its original single-file
   transaction; a full restore first saves the current complete state.
 - The timestamped list is sorted newest first. Complete real-card backups remain

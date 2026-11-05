@@ -340,6 +340,9 @@ final class PreviewModel: ObservableObject {
     var isBackupOnly: Bool { snapshot.map { $0.access != "edit" } ?? false }
     // Synthetic demos always use the editable reviewed release.
     var demoModels: [ReaderProfile] { catalog?.profiles.first { $0.access == "edit" }?.models ?? [] }
+    func releaseLabel(_ firmware: String) -> String {
+        catalog?.profiles.first { $0.firmware == firmware }?.label ?? "CrossInk v\(firmware)"
+    }
     /// Guidance for backup-only releases. InkKit never updates reader firmware.
     func editingHint(for firmware: String?) -> String {
         let latest = catalog?.profiles.first { $0.access == "edit" }?.firmware ?? ""
@@ -552,7 +555,7 @@ final class PreviewModel: ObservableObject {
             install(result.snapshot)
             try await fetchBackups()
             status = reviewedBackup != nil ? "Original configuration restored and read back successfully." :
-                "Configuration backed up, applied and verified. Eject before removing your card."
+                isCard ? "Configuration backed up, applied and verified. Eject before removing your card." : "Demo configuration backed up, applied and verified."
             if result.snapshot.has_plaintext { status += " Plaintext credentials remain until CrossInk loads and successfully resaves them." }
         } catch { report(error) }
     }
@@ -725,11 +728,11 @@ struct ReviewSheet: View {
                 "The original settings will be backed up before these changes are applied.")
                 .foregroundStyle(.secondary)
             Table(model.differences) {
-                TableColumn("Setting", value: \.label)
+                TableColumn("Setting") { Text($0.label).lineLimit(2).help($0.label) }.width(min: 220, ideal: 300)
                 TableColumn("Current") { Text($0.formatted($0.before, fields: model.reviewFields.isEmpty ? (model.snapshot?.fields ?? []) : model.reviewFields)) }
                 TableColumn(model.isRestoring ? "Restored" : "New") { Text($0.formatted($0.after, fields: model.reviewFields.isEmpty ? (model.snapshot?.fields ?? []) : model.reviewFields)) }
             }
-            .frame(minHeight: 150, maxHeight: 280)
+            .frame(height: min(280, 40 + CGFloat(model.differences.count) * 30))
             if model.requiresPlaintext {
                 Toggle("I agree that this write stores plaintext credentials until CrossInk loads and successfully resaves them.", isOn: $model.plaintextConsent)
                 Text("Passwords are hidden from this review. Eject, put the card back in the reader and use the relevant Wi-Fi or sync feature. Boot alone does not guarantee the password is resaved. Backups can retain credentials.")
@@ -748,7 +751,7 @@ struct ReviewSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 650)
+        .frame(width: 720)
         .disabled(model.busy)
         .interactiveDismissDisabled(model.busy)
     }
@@ -764,7 +767,7 @@ struct BackupsPage: View {
             Text("Back up all six global configuration stores together. Books, font/dictionary assets and per-book data are separate. Backups stay on this Mac and may contain credentials.")
                 .foregroundStyle(.secondary)
             HStack {
-                Button("Backup now", systemImage: "externaldrive.badge.plus") { Task { await model.backupNow() } }
+                Button("Back up now", systemImage: "externaldrive.badge.plus") { Task { await model.backupNow() } }
                     .buttonStyle(.borderedProminent).disabled(model.snapshot == nil || model.busy || !model.dirty.isEmpty)
                 Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.loadBackups() } }.disabled(model.busy)
                 Spacer()
@@ -777,15 +780,19 @@ struct BackupsPage: View {
             }
             if model.backups.isEmpty {
                 ContentUnavailableView("No local configuration backups", systemImage: "clock.arrow.circlepath",
-                    description: Text("Open your card and choose Backup now. Applying a change also saves a complete backup first."))
+                    description: Text("Open your card and choose Back up now. Applying a change also saves a complete backup first."))
             } else {
                 List(model.backups) { backup in
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 5) {
                             if backup.state == "unavailable" { Text("Incomplete or invalid backup") }
                             else { Text(backup.date, format: .dateTime.year().month().day().hour().minute().second()).fontWeight(.medium) }
-                            Text("\(backup.scopeLabel) · \(backup.model) · \(backup.reasonLabel)")
+                            Text(([backup.scopeLabel, backup.model] + (backup.firmware.map { [model.releaseLabel($0)] } ?? []) + [backup.reasonLabel]).joined(separator: " · "))
                                 .font(.callout).foregroundStyle(.secondary)
+                            if !backup.can_restore && backup.state != "unavailable" {
+                                Text(model.snapshot == nil ? "Open the matching card to restore." : "Restore needs the same reader model and CrossInk version.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                             if !backup.can_delete && backup.state != "unavailable" {
                                 Text("Protected recovery backup").font(.caption).foregroundStyle(.secondary)
                             }
@@ -818,8 +825,10 @@ struct CardProfileSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Confirm your reader").font(.title2.bold())
-            Text("Card files cannot reliably identify the model or installed firmware. Choose the reader this card belongs to.")
+            Text("The card cannot tell InkKit which reader or CrossInk version it came from. Choose them here.")
                 .foregroundStyle(.secondary)
+            Label("On the reader, open Settings → System. The CrossInk version is shown at the bottom of that screen.", systemImage: "info.circle")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Picker("CrossInk version", selection: $model.chosenProfile) {
                 ForEach(model.catalog?.profiles ?? []) { Text($0.label).tag($0.id) }
             }.onChange(of: model.chosenProfile) {
@@ -836,9 +845,7 @@ struct CardProfileSheet: View {
                 Text(model.editingHint(for: model.currentProfile?.firmware))
                     .font(.callout).foregroundStyle(.secondary)
             }
-            Text("Version or device not listed? Choose the unreviewed newer option for backups, or use the separate migration CLI to back up or diagnose a layout-compatible card.")
-                .font(.callout).foregroundStyle(.secondary)
-            Text("Selected X3 settings have owner-reported acceptance; other settings and models still need validation. Opening reads configuration only. Applying changes first backs up all six global configurations on this Mac.")
+            Text("Opening only reads the card. Newer than every listed version? Choose the unreviewed option to keep backups.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack {
                 Spacer()
@@ -1075,7 +1082,9 @@ struct PreviewWindow: View {
                 if enabled == nil || model.draft[enabled!.key]?.integer == 1 {
                     Section(section) {
                         ForEach(rows.filter { !$0.key.hasSuffix(".enabled") }) { field in FieldRow(field: field, model: model) }
-                        if enabled != nil { Button("Remove entry", role: .destructive) { model.removeEntry(section) } }
+                        if enabled != nil {
+                            Button("Remove " + (section.hasPrefix("Network") ? "network" : section.hasPrefix("Server") ? "server" : "font profile"), role: .destructive) { model.removeEntry(section) }
+                        }
                     }
                 }
             }

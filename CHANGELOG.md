@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Polish app flows: the reader confirmation explains where CrossInk shows its
+  version (Settings → System) with shorter notes; Backups rows show the CrossInk
+  version and why Restore is unavailable, and the action reads Back up now; the
+  review table fits long labels and sizes to its rows; demo applies no longer
+  ask to eject; collection buttons say Remove network, server or font profile.
+
 - Clarify the app: settings pages appear only after a card is open; button and
   shortcut mappings move to Controls with sections such as Side buttons, Power
   button and Home button; labels no longer come from storage keys; controls for

@@ -146,7 +146,7 @@ def summary():
             ', '.join(model + ' ' + str(count) for model, count in counts.items()) +
             ' editable main controls in a fresh profile. Older tilt schemas require firmware migration first.\n\n'
             'Review, complete six-store Mac-side backups, verified apply, guarded restore and safe eject\n'
-            'are implemented. Backups supports Backup now, newest-first history, reviewed restore and confirmed deletion.\n'
+            'are implemented. Backups supports Back up now, newest-first history, reviewed restore and confirmed deletion.\n'
             'New or retained plaintext passwords require explicit consent for each write.\n'
             'The app is a **development build with limited owner-reported X3 settings acceptance**.\n'
             'Restore, safe eject and tested preferences including Sleep Screen worked on X3; other settings/models remain unvalidated.\n'
