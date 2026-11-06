@@ -80,7 +80,7 @@ See [complete build instructions and packaging limits](docs/macos-preview.md).
    and insert its card into a separate SD reader. Choose **Open SD card**, select
    the mounted root and confirm the actual model and the CrossInk version running
    on the reader. For a backup-only version, the app shows only Overview and Backups.
-2. Use **Backups → Backup now** before editing. Change one preference, review it
+2. Use **Backups → Back up now** before editing. Change one preference, review it
    and choose **Back up & apply**. After **Eject** succeeds, return the card to the
    shut-down reader and verify the result there.
 
@@ -96,7 +96,7 @@ plus up to **8 Wi-Fi networks, 8 OPDS servers, reading-sync preferences, 24 TTF 
 and the global dictionary selection**. Controls follow the selected model: X3 121, X4 112, X4 Classic 122, X4 Pro 132 editable main controls in a fresh profile. Older tilt schemas require firmware migration first.
 
 Review, complete six-store Mac-side backups, verified apply, guarded restore and safe eject
-are implemented. Backups supports Backup now, newest-first history, reviewed restore and confirmed deletion.
+are implemented. Backups supports Back up now, newest-first history, reviewed restore and confirmed deletion.
 New or retained plaintext passwords require explicit consent for each write.
 The app is a **development build with limited owner-reported X3 settings acceptance**.
 Restore, safe eject and tested preferences including Sleep Screen worked on X3; other settings/models remain unvalidated.
@@ -132,7 +132,7 @@ its independent card/layout checks pass. See the [support policy](docs/firmware-
 
 ### Complete configuration backups
 
-**Backups → Backup now** captures all six global configuration stores together.
+**Backups → Back up now** captures all six global configuration stores together.
 Local history is sorted newest first, including timestamp, model and backup scope.
 Restore reviews the current state and preserves a complete pre-restore backup;
 Delete asks for confirmation. Older compatible complete snapshots can be restored

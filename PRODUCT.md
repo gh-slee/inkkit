@@ -28,7 +28,7 @@ The direct migration CLI remains dependency-free and retains its stable filename
   reference for actual model availability and excluded runtime actions/assets.
 - Real-card opening requires explicit model/firmware selection, confirmed removable
   media and Mac-side recovery storage. Apply/restore use review and verified IO.
-- Complete six-store snapshots support Backup now, newest-first timestamped
+- Complete six-store snapshots support Back up now, newest-first timestamped
   history, reviewed restore of any compatible older snapshot and confirmed local
   deletion. Apply/restore retain the prior state. Legacy single-file records keep
   their original scope and restore guards; books/assets are not config snapshots.
