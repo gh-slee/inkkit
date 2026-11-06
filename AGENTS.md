@@ -64,6 +64,7 @@ python3 scripts/install_git_hooks.py
 XTEINK_TESTING=1 python3 -m unittest discover -s tests -v -b
 python3 -m compileall -q xteink_sd_migrate.py disk_safety.py restore_recovery.py inkkit_config.py inkkit_helper.py inkkit_codec.py inkkit_schema.py crossink_profile.py crossink_contracts.py inkkit_volume.py inkkit_snapshots.py scripts tests
 python3 scripts/check_configuration_docs.py
+python3 scripts/tickets.py check
 python3 scripts/check_publication.py --worktree
 python3 scripts/check_publication.py --staged
 python3 scripts/check_publication.py --all-history
@@ -72,5 +73,23 @@ python3 scripts/check_publication.py --all-history
 Read [development](docs/development.md), [publication](docs/publishing.md),
 [safety](docs/safety.md) and [compatibility](docs/compatibility.md) as relevant.
 [Agent setup](docs/agent-development.md) covers discovery, fresh sessions and worktrees.
-Use existing GitHub Issues for public tasks; keep private session state out of them.
-Public instructions belong here; private preferences belong in ignored local files.
+Track planned work as tickets (below); GitHub Issues remain for user bug and hardware
+reports. Keep private session state out of both. Public instructions belong here;
+private preferences belong in ignored local files.
+
+## Tickets and parallel agents
+
+All planned and in-progress work is tracked in [tickets/](tickets/README.md), one
+Markdown file per ticket; [tickets/ROADMAP.md](tickets/ROADMAP.md) orders it. Several
+agents (any vendor or model) may work at once, one ticket each:
+
+- Find work with `python3 scripts/tickets.py next --tier <any|standard|frontier>`;
+  claim it with `python3 scripts/tickets.py claim <ID> --agent <tool/model> --worktree`
+  and work only in that ticket's worktree and branch. Never take a live claim or a
+  ticket whose resources another live claim holds.
+- Read the ticket's Handoff first. Keep Handoff current, commit and push the ticket
+  branch, and run `heartbeat` at every checkpoint, because a usage limit can stop you
+  at any time. Resume someone else's stale claim with `resume` and `takeover`.
+- Edit only your own ticket file; file new tickets for follow-ups. `gate: owner`
+  tickets need recorded owner approval before work starts. Use the claim's
+  `isolation_id` and `port_base` for Docker, databases and ports.

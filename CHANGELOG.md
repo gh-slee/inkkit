@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Track planned work as Markdown tickets in `tickets/` with a roadmap, and add
+  `scripts/tickets.py` for atomic claims, resource locks, per-ticket worktrees and
+  handoffs so several development agents can work in parallel. The publication
+  guard accepts only ticket files named by ticket ID. No application changes.
+
 - Polish app flows: the reader confirmation explains where CrossInk shows its
   version (Settings → System) with shorter notes; Backups rows show the CrossInk
   version and why Restore is unavailable, and the action reads Back up now; the

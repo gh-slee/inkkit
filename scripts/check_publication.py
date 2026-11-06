@@ -57,6 +57,11 @@ APPROVED_IMAGES = {
 }
 PUBLIC_PATHS.update(APPROVED_IMAGES)
 PUBLIC_PATHS.update({'assets/macos/README.md', 'docs/screenshots.md'})
+# Agent ticket workflow: the claim script, its test and the tracked Markdown backlog.
+PUBLIC_PATHS.update({'CLAUDE.md', 'scripts/tickets.py', 'tests/test_tickets.py',
+                     'tickets/README.md', 'tickets/TEMPLATE.md', 'tickets/ROADMAP.md'})
+# Only top-level ticket files whose name is a ticket ID; no other tickets/ content.
+TICKET_FILE = re.compile(r'tickets/[A-Z][A-Z0-9]*-P[0-2]-[0-9]{3}[A-Z]?\.md')
 
 MAX_BYTES = 2 * 1024**2
 SECRET_PATTERNS = (
@@ -86,7 +91,7 @@ def allowed(path):
     # Private guidance is forbidden at every depth, even after an allowlist mistake.
     if PurePosixPath(path).name.casefold() == 'agents.override.md':
         return False
-    return path in PUBLIC_PATHS
+    return path in PUBLIC_PATHS or TICKET_FILE.fullmatch(path) is not None
 
 
 def content_issues(data):
