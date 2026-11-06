@@ -147,6 +147,16 @@ class PublicationTests(unittest.TestCase):
                      '.github/workflows/unreviewed.yml'):
             self.assertFalse(guard.allowed(name))
 
+    def test_ticket_workflow_paths_are_exact_public_exceptions(self):
+        for name in ('CLAUDE.md', 'scripts/tickets.py', 'tests/test_tickets.py', 'tickets/README.md',
+                     'tickets/TEMPLATE.md', 'tickets/ROADMAP.md', 'tickets/INK-P0-001.md',
+                     'tickets/INK-P1-012A.md'):
+            self.assertTrue(guard.allowed(name))
+        for name in ('tickets/notes.md', 'tickets/INK-P3-001.md', 'tickets/ink-p0-001.md',
+                     'tickets/INK-P0-001.md.bak', 'tickets/sub/INK-P0-001.md', 'tickets/INK-P0-1.md',
+                     'work/agent-claim.json', 'tickets/AGENTS.override.md', 'docs/CLAUDE.md'):
+            self.assertFalse(guard.allowed(name))
+
     def test_unknown_nonignored_source_rejected(self):
         (self.root / 'unreviewed.txt').write_text('Synthetic unknown file')
         self.assertTrue(guard.audit(self.root, 'worktree')[1])

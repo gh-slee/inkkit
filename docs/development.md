@@ -133,9 +133,10 @@ permit publication, releases, deployment or real-data migration.
 
 Preserve the observed branch/checkout and unrelated changes. Local setup patches may
 remain unstaged and uncommitted for review; do not manufacture a release/version bump
-or create a new public roadmap for instruction maintenance. Use the existing Issues
-tracker for substantive public tasks with explicit acceptance conditions. Record
-local verification privately and distinguish local checks from pushed CI results.
+or create a new public roadmap for instruction maintenance. Track substantive public
+tasks as [tickets](../tickets/README.md) with explicit acceptance criteria, ordered by
+[the roadmap](../tickets/ROADMAP.md); GitHub Issues remain for bug and hardware reports.
+Record local verification privately and distinguish local checks from pushed CI results.
 
 ## Configuration coverage maintenance
 
