@@ -132,7 +132,8 @@ class StoreTests(unittest.TestCase):
         self.seed('wifi', {'credentials': [{'ssid': 'A', 'password_obf': obf}, {'ssid': 'B', 'password': 'example-plain'}, {'ssid': 'C'}]})
         token = self.read('wifi')['token']
         self.assertNotIn('example-saved', json.dumps(self.read('wifi')))
-        self.assertEqual(self.read('wifi')['saved_passwords'], {'credentials.0.password': True, 'credentials.1.password': True, 'credentials.2.password': False})
+        saved = self.read('wifi')['saved_passwords']
+        self.assertEqual([saved['credentials.%d.password' % i] for i in range(4)], [True, True, False, False])
         locked = config.reveal_passwords(self.root, token, 'wifi')['passwords']
         self.assertEqual(locked['credentials.0.password'], dict(status='needs_mac', text=''))
         self.assertEqual(locked['credentials.1.password'], dict(status='plaintext', text='example-plain'))
