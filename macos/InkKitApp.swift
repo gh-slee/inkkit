@@ -119,6 +119,7 @@ struct Snapshot: Decodable {
     let access: String
     let groups: [String]
     let has_plaintext: Bool
+    let saved_passwords: [String: Bool]?
     let profile: String
     let synthetic: Bool
     let fields: [FieldDescriptor]
@@ -201,9 +202,10 @@ struct HelperRequest: Encodable {
     var expected_stores: [String: SnapshotToken]? = nil
     var backup_sha256: String? = nil
     var checksum: String? = nil
+    var mac: String? = nil
     enum CodingKeys: String, CodingKey {
         case protocolVersion = "protocol"
-        case action, root, expected, changes, backup_id, store, model, firmware, confirmed, allow_plaintext, expected_stores, backup_sha256, checksum
+        case action, root, expected, changes, backup_id, store, model, firmware, confirmed, allow_plaintext, expected_stores, backup_sha256, checksum, mac
     }
 }
 
@@ -222,6 +224,15 @@ struct Envelope<T: Decodable>: Decodable {
         case protocolVersion = "protocol"
         case ok, data, error
     }
+}
+
+struct RevealedPassword: Decodable {
+    let status: String
+    let text: String
+}
+
+struct RevealResult: Decodable {
+    let passwords: [String: RevealedPassword]
 }
 
 struct PlanResult: Decodable {
@@ -352,6 +363,26 @@ final class PreviewModel: ObservableObject {
         return "To edit settings, update the reader to CrossInk v\(latest) on the reader itself, then reopen the card and choose that version. InkKit does not update firmware."
     }
     @Published var sessionGeneration = 0
+    /// Saved passwords shown only after an explicit request; cleared whenever a snapshot is installed.
+    @Published var revealed: [String: RevealedPassword] = [:]
+    @Published var readerMAC = ""
+    func revealPasswords() async {
+        guard !busy, let root, let snapshot else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let mac = readerMAC.trimmingCharacters(in: .whitespaces)
+            let result: RevealResult = try await request(HelperRequest(action: "config.reveal", root: root,
+                expected: snapshot.token, store: store, mac: mac.isEmpty ? nil : mac))
+            revealed = result.passwords
+            if result.passwords.values.contains(where: { $0.status == "wrong_mac" }) {
+                status = "That MAC address did not decode a saved password. Check it on the reader and try again."
+            } else if result.passwords.values.contains(where: { $0.status == "needs_mac" }) {
+                status = "Some saved passwords are obfuscated with the reader's MAC address. Enter it to show them."
+            } else { status = "Saved passwords shown. Hide them before sharing your screen." }
+        } catch { report(error) }
+    }
+    func hidePasswords() { revealed = [:] }
     private var root: String?
     private var reviewedChanges: [String: SettingValue] = [:]
     private var reviewedBackup: String?
@@ -395,6 +426,7 @@ final class PreviewModel: ObservableObject {
     private func install(_ snapshot: Snapshot) {
         self.snapshot = snapshot
         self.draft = snapshot.values
+        revealed = [:]
         chosenModel = snapshot.model
     }
     func loadProfiles() async {
@@ -655,8 +687,19 @@ struct FieldRow: View {
                     return integer.wrappedValue == 1
                 }, set: { model.draft[field.key] = field.kind == "bool" ? .flag($0) : .number($0 ? 1 : 0) }))
             } else if field.kind == "secret" {
-                SecureField(field.label, text: text)
-                    .help("Leave blank to keep the saved password. New passwords require plaintext-handoff consent at Apply.")
+                VStack(alignment: .leading, spacing: 2) {
+                    SecureField(field.label, text: text, prompt: Text(model.snapshot?.saved_passwords?[field.key] == true ? "••••••••  (saved, kept unless you change it)" : "No saved password"))
+                        .help("Leave blank to keep the saved password. New passwords require plaintext-handoff consent at Apply.")
+                    if let saved = model.revealed[field.key] {
+                        switch saved.status {
+                        case "plaintext", "decoded":
+                            Text("Saved password: ").foregroundStyle(.secondary) + Text(saved.text).font(.body.monospaced())
+                        case "needs_mac": Text("Saved password present — enter the reader MAC address to show it.").foregroundStyle(.secondary)
+                        case "wrong_mac": Text("Saved password present — the MAC address did not decode it.").foregroundStyle(.orange)
+                        default: Text("No saved password (open network).").foregroundStyle(.secondary)
+                        }
+                    }
+                }
             } else if field.kind == "text" {
                 TextField(field.label, text: text)
                     .help("Maximum \(field.maximum) UTF-8 bytes. Paths refer to the SD card, not this Mac.")
@@ -1071,8 +1114,15 @@ struct PreviewWindow: View {
         Form {
             if model.store == "wifi" || model.store == "opds" || model.store == "koreader" {
                 Section {
-                    Text("Existing passwords stay hidden and are preserved. Leave a new password blank to keep it, or explicitly choose Clear password. New passwords require consent before plaintext is written.")
+                    Text("Existing passwords are preserved and hidden unless you choose Show saved passwords. Leave a new password blank to keep it, or explicitly choose Clear password. New passwords require consent before plaintext is written.")
                         .foregroundStyle(.secondary)
+                    TextField("Reader MAC address", text: $model.readerMAC, prompt: Text("AA:BB:CC:DD:EE:FF"))
+                        .textFieldStyle(.roundedBorder)
+                        .help("Needed only for passwords the reader obfuscated. Find it on the reader's device-info screen or your router It is never saved.")
+                    HStack {
+                        Button("Show saved passwords") { Task { await model.revealPasswords() } }
+                        if !model.revealed.isEmpty { Button("Hide") { model.hidePasswords() } }
+                    }
                     if model.snapshot?.has_plaintext == true { Text("This file currently contains plaintext credentials. Protect the card and its backups.").foregroundStyle(.orange) }
                 }
             }

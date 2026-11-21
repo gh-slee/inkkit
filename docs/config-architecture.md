@@ -93,15 +93,19 @@ just to bypass a rejection.
 
 ## Credentials and IPC
 
-Saved plaintext/obfuscated passwords never appear in UI/helper settings state or
-review differences. Private file backups and complete configuration snapshots
+Saved plaintext/obfuscated passwords never appear in routine UI/helper settings
+state or review differences. Only the explicit `config.reveal` helper action, started
+by the "Show saved passwords" button, returns them for the current store: plaintext
+fallback values as stored, and obfuscated values decoded with a reader MAC address
+the user types in (Base64, then cyclic XOR with the six MAC bytes). The MAC is
+never stored or guessed. The result is held only in memory until a snapshot reloads. Private file backups and complete configuration snapshots
 retain the original stored credential bytes; redaction is not backup encryption.
 Blank input keeps the existing material; explicit Clear removes it. New passwords
 use CrossInk's plaintext fallback, only after a fresh review checkbox for each write.
 Any resulting or restored file containing plaintext requires that consent. Firmware
 must load and successfully resave the store to replace plaintext with MAC-dependent
 obfuscation; boot alone is insufficient. Obfuscation is not encryption. No device
-MAC guessing, decryption, network login or keychain integration is implemented.
+MAC guessing, network login or keychain integration is implemented.
 
 Protocol 2 has the following allowlisted actions:
 
