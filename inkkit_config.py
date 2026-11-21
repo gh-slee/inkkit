@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import inkkit_schema as schema
 import inkkit_codec as codec
+import base64
 import fcntl
 import hashlib
 import json
@@ -468,7 +469,8 @@ def read_settings(root, store='settings', model=None):
                     access=schema.access(workspace.model, workspace.firmware),
                     model=workspace.model, capabilities=schema.capabilities(workspace.model, workspace.firmware), store=store, stores=[dict(id=key, label=schema.STORES[key][1]) for key in schema.release_stores(workspace.firmware) or schema.STORES],
                     fields=fields, values=codec.values(doc, store, fields), token=token, groups=_settings_groups(workspace),
-                    has_plaintext=_has_plaintext(doc), label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
+                    has_plaintext=_has_plaintext(doc), saved_passwords=_saved_passwords(doc, fields),
+                    label='Synthetic demo' if workspace.synthetic else workspace.context['label'])
 
 
 def _settings_groups(workspace):
@@ -479,10 +481,67 @@ def _settings_groups(workspace):
                    if not field.get('hidden')})
 
 
+def _saved_passwords(doc, fields):
+    """Which secret fields already hold a saved password, as booleans only; no secret material leaves the file."""
+    result = {}
+    for field in fields:
+        if field['kind'] != 'secret':
+            continue
+        parent = field['key'][:-len('password')].rstrip('.')
+        entry = schema.path_get(doc, parent) if parent else doc
+        result[field['key']] = isinstance(entry, dict) and bool(entry.get('password') or entry.get('password_obf'))
+    return result
+
+
 def _has_plaintext(value):
     if isinstance(value, dict):
         return bool(value.get('password')) or any(_has_plaintext(child) for key, child in value.items() if key != 'password')
     return isinstance(value, list) and any(_has_plaintext(child) for child in value)
+
+
+def parse_mac(text):
+    """Return the six device MAC bytes used by CrossInk's password obfuscation."""
+    digits = re.sub(r'[\s:.-]', '', text) if type(text) is str else ''
+    if len(digits) != 12 or any(c not in '0123456789abcdefABCDEF' for c in digits):
+        raise ConfigError('mac', 'Enter the reader MAC address as six hex pairs, for example AA:BB:CC:DD:EE:FF.')
+    return bytes.fromhex(digits)
+
+
+def _deobfuscate(encoded, key):
+    """Reverse firmware obfuscation: Base64, then cyclic XOR with the MAC. None if implausible."""
+    try:
+        data = base64.b64decode(encoded, validate=True)
+        text = bytes(byte ^ key[i % 6] for i, byte in enumerate(data)).decode('utf-8')
+    except (ValueError, TypeError):
+        return None
+    return text if text and all(ord(c) >= 32 and ord(c) != 127 for c in text) else None
+
+
+def reveal_passwords(root, expected, store='settings', mac=None, model=None):
+    """Show saved passwords for one store on explicit request; never part of normal state or diffs."""
+    key = parse_mac(mac) if mac else None
+    with _Workspace(root, store, model) as workspace:
+        _, doc, _ = workspace.require(expected)
+        result = {}
+        for field in workspace.fields(doc):
+            field = field.public()
+            if field['kind'] != 'secret':
+                continue
+            parent = field['key'][:-len('password')].rstrip('.')
+            entry = schema.path_get(doc, parent) if parent else doc
+            if not isinstance(entry, dict):
+                continue
+            if entry.get('password'):
+                result[field['key']] = dict(status='plaintext', text=str(entry['password']))
+            elif entry.get('password_obf'):
+                if key is None:
+                    result[field['key']] = dict(status='needs_mac', text='')
+                else:
+                    text = _deobfuscate(entry['password_obf'], key)
+                    result[field['key']] = dict(status='decoded', text=text) if text is not None else dict(status='wrong_mac', text='')
+            else:
+                result[field['key']] = dict(status='none', text='')
+        return dict(passwords=result)
 
 
 def _plan(workspace, doc, changes, allow_plaintext=True):

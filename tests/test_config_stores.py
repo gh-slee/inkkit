@@ -125,6 +125,25 @@ class StoreTests(unittest.TestCase):
                 self.assertEqual(self.path(store).read_bytes(), before)
         self.assertEqual(self.read('wifi')['values']['credentials.0.password'], '')
 
+    def test_reveal_decodes_with_mac_and_shows_plaintext_on_request_only(self):
+        import base64
+        mac = bytes.fromhex('aabbccddeeff')
+        obf = base64.b64encode(bytes(b ^ mac[i % 6] for i, b in enumerate(b'example-saved'))).decode()
+        self.seed('wifi', {'credentials': [{'ssid': 'A', 'password_obf': obf}, {'ssid': 'B', 'password': 'example-plain'}, {'ssid': 'C'}]})
+        token = self.read('wifi')['token']
+        self.assertNotIn('example-saved', json.dumps(self.read('wifi')))
+        self.assertEqual(self.read('wifi')['saved_passwords'], {'credentials.0.password': True, 'credentials.1.password': True, 'credentials.2.password': False})
+        locked = config.reveal_passwords(self.root, token, 'wifi')['passwords']
+        self.assertEqual(locked['credentials.0.password'], dict(status='needs_mac', text=''))
+        self.assertEqual(locked['credentials.1.password'], dict(status='plaintext', text='example-plain'))
+        self.assertEqual(locked['credentials.2.password']['status'], 'none')
+        shown = config.reveal_passwords(self.root, token, 'wifi', 'AA:BB:CC:DD:EE:FF')['passwords']
+        self.assertEqual(shown['credentials.0.password'], dict(status='decoded', text='example-saved'))
+        wrong = config.reveal_passwords(self.root, token, 'wifi', '00:11:22:33:44:55')['passwords']
+        self.assertEqual(wrong['credentials.0.password']['status'], 'wrong_mac')
+        with self.assertRaises(config.ConfigError):
+            config.reveal_passwords(self.root, token, 'wifi', 'nope')
+
     def test_plaintext_requires_consent_each_apply_and_restore_and_never_leaks(self):
         self.seed('wifi', {'credentials': [{'ssid': 'Example', 'password_obf': 'example-opaque'}]})
         request = dict(protocol=2, root=str(self.root), store='wifi', expected=self.read('wifi')['token'], changes={'credentials.0.password': 'example-new-password'})

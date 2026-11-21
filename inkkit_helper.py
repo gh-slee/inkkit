@@ -24,13 +24,13 @@ def dispatch(request):
         'profiles.describe': set(), 'demo.create': set(), 'volume.open': {'root', 'model', 'firmware', 'confirmed'},
         'volume.eject': {'root'}, 'volume.backup_location': {'root'},
         'config.read': {'root'}, 'config.preview': {'root', 'expected', 'changes'},
-        'config.apply': {'root', 'expected', 'changes'}, 'backups.list': {'root'},
+        'config.apply': {'root', 'expected', 'changes'}, 'config.reveal': {'root', 'expected'}, 'backups.list': {'root'},
         'config.restore_preview': {'root', 'expected', 'backup_id'},
         'config.restore': {'root', 'expected', 'backup_id'},
     }
     optional = {'snapshots.list': {'root'}, 'snapshots.location': {'root'},
                 'snapshots.delete': {'root'}, 'snapshots.restore': {'allow_plaintext'},
-                'demo.create': {'model'}, 'config.apply': {'store', 'allow_plaintext'},
+                'demo.create': {'model'}, 'config.apply': {'store', 'allow_plaintext'}, 'config.reveal': {'store', 'mac'},
                 'config.restore': {'store', 'allow_plaintext'}}
     if type(action) is not str or action not in required:
         raise config.ConfigError('request', 'The helper action is unsupported.')
@@ -76,6 +76,11 @@ def dispatch(request):
         raise config.ConfigError('store', 'Choose a supported configuration category.')
     if action == 'config.read':
         return config.read_settings(root, store)
+    if action == 'config.reveal':
+        mac = request.get('mac')
+        if mac is not None and type(mac) is not str:
+            raise config.ConfigError('mac', 'Enter the reader MAC address as six hex pairs, for example AA:BB:CC:DD:EE:FF.')
+        return config.reveal_passwords(root, request['expected'], store, mac)
     if action == 'backups.list':
         return config.list_backups(root, store)
     if action == 'config.preview':
